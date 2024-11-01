@@ -1,8 +1,7 @@
-# Rummagene
+# L2S2
+### LINCS L1000 Signatures Search
 
-<https://rummagene.com/>
-
-This is a webserver for gene set enrichment analysis on a very large gene set -- one constructed by extracting gene sets from PMC OA. The [bot](https://github.com/MaayanLab/rummagene/tree/main/bot) does the extraction weekly.
+<https://l2s2.maayanlab.cloud/>
 
 ## Development
 Rather than splitting up the meta and data APIs, all functionality is incorporated into a postgres database.
@@ -35,6 +34,7 @@ npm run dev
 PYTHONPATH=bot python -m helper ingest -i your-gmt.gmt
 PYTHONPATH=bot python -m helper ingest-paper-info
 PYTHONPATH=bot python -m helper ingest-gene-info
+PYTHONPATH=bot python -m helper update-background
 ```
 
 ### Writing Queries

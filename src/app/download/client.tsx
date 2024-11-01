@@ -1,93 +1,39 @@
 'use client'
 import React from 'react'
 import Stats from "@/app/stats";
-import { useLatestReleaseQuery } from "@/graphql";
 
 // TODO: have downloads as a table in the database
 const downloads = [
   {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/table-mining.gmt.gz',
-    filename: 'table-mining.gmt.gz',
-    title: 'table-mining.gmt.gz',
-    value: '729,968 columns',
-    size: <><span className="whitespace-nowrap">2GB compressed</span>, <span className="whitespace-nowrap">5GB uncompressed</span></>,
-    updated: new Date('Aug 7 2023'),
+    url: 'https://lincs-dcic.s3.amazonaws.com/LINCS-sigs-2021/gmt/l1000_cp.gmt',
+    filename: 'l1000_cp.gmt',
+    title: 'l1000_cp.gmt',
+    value: '1,436,110 signatures',
+    size: <><span className="whitespace-nowrap">2.25GB uncompressed</span></>,
+    updated: new Date('Jul 1 2021'),
   },
   {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/table-mining-clean-with-desc.gmt.gz',
-    filename: 'table-mining-clean-with-desc.gmt.gz',
-    title: 'table-mining-clean-with-desc.gmt.gz',
-    value: '642,389 gene sets',
-    size: <><span className="whitespace-nowrap">253MB compressed</span>, <span className="whitespace-nowrap">752MB uncompressed</span></>,
-    updated: new Date('Jan 5 2024'),
-  },
-  {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/table-mining-clean.gmt.gz',
-    filename: 'table-mining-clean.gmt.gz',
-    title: 'table-mining-clean.gmt.gz',
-    value: '642,389 gene sets',
-    size: <><span className="whitespace-nowrap">231MB compressed</span>, <span className="whitespace-nowrap">624MB uncompressed</span></>,
-    updated: new Date('Aug 7 2023'),
-  },
-  {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/umap.tsv.gz',
-    filename: 'umap.tsv.gz',
-    title: 'umap.tsv.gz',
-    value: '642,389 points',
-    size: <><span className="whitespace-nowrap">12.4MB compressed</span>, <span className="whitespace-nowrap">51.3MB uncompressed</span></>,
-    updated: new Date('Oct 2 2023'),
-  },
-  {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/random50k_co-occurrence.f.gz',
-    filename: 'random50k_co-occurrence.f.gz',
-    title: 'random50k_co-occurrence.f.gz',
-    value: '19,551 genes',
-    size: <><span className="whitespace-nowrap">455.1MB compressed</span>, <span className="whitespace-nowrap">1GB uncompressed</span></>,
-    updated: new Date('Mar 14 2024'),
-  },
-  {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/Rummagene_kinases.gmt.gz',
-    filename: 'Rummagene_kinases.gmt.gz',
-    title: 'Rummagene_kinases.gmt.gz',
-    value: '3,810 gene sets',
-    size: <><span className="whitespace-nowrap">2.0MB compressed</span>, <span className="whitespace-nowrap">5.2MB uncompressed</span></>,
-    updated: new Date('Mar 15 2024'),
-  },
-  {
-    url: 'https://s3.amazonaws.com/maayanlab-public/rummagene/Rummagene_transcription_factors.gmt.gz',
-    filename: 'Rummagene_transcription_factors.gmt.gz',
-    title: 'Rummagene_transcription_factors.gmt.gz',
-    value: '7,245 gene sets',
-    size: <><span className="whitespace-nowrap">4.4MB compressed</span>, <span className="whitespace-nowrap">11MB uncompressed</span></>,
-    updated: new Date('Mar 15 2024'),
-  },
+    url: 'https://lincs-dcic.s3.amazonaws.com/LINCS-sigs-2021/gmt/l1000_xpr.gmt',
+    filename: 'l1000_xpr.gmt',
+    title: 'l1000_xpr.gmt',
+    value: '281,890 signatures',
+    size: <><span className="whitespace-nowrap">438.4MB uncompressed</span></>,
+    updated: new Date('Jul 1 2021'),
+  }
 ]
 
 export default function DownloadClientPage() {
-  const { data } = useLatestReleaseQuery()
-  const latest_release_date = React.useMemo(() => new Date(data?.releases?.nodes[0]?.created), [data])
   const downloads_with_latest = React.useMemo(() => {
     const downloads_with_latest = [
       ...downloads,
-      {
-        url: '/latest.gmt',
-        filename: 'latest.gmt',
-        title: 'latest.gmt',
-        value: <Stats show_gene_sets />,
-        size: <><span className="whitespace-nowrap">Approx 700MB</span></>,
-        updated: latest_release_date,
-      },
     ]
     downloads_with_latest.sort((a, b) => a.updated < b.updated ? 1 : -1)
     return downloads_with_latest
-  }, [latest_release_date])
+  }, [])
   return (
     <div className="prose">
       <h2 className="title text-xl font-medium mb-3">Downloads</h2>
       <br />
-      <p>
-        This database is updated weekly to extract gene sets automatically from newly published open access PMC articles.
-      </p>
       <div className="grid lg:grid-cols-2 gap-4 my-4">
         {downloads_with_latest.map(download => (
           <a key={download.url} className="stats shadow" href={download.url} download={download.filename}>
@@ -104,7 +50,9 @@ export default function DownloadClientPage() {
       <p>
         Developed in <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
       </p>
-      
+      <p>
+        For more information about the LINCS L1000 data and additional download types, please visit the <a className='underline cursor' href="https://maayanlab.cloud/sigcom-lincs/#/Download">SigComLINCS</a> website and refer to its <a className='underline cursor' href="https://academic.oup.com/nar/article/50/W1/W697/6582159">publication</a>.
+      </p>
     </div>
   )
 }

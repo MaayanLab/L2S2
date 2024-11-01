@@ -72,18 +72,51 @@ export default function TermTable({ terms }: { terms: { __typename?: "GeneSet" |
             >&#x21E9;</button>
           </div>
         </div>
-        <table className="table table-xs table-pin-cols table-auto">
+        <table className="table table-xs">
           <thead>
             <tr>
-              <td >Term</td>
-              <td >Gene Set</td>
+              <th>Term</th>
+              <th>Perturbation</th>
+              <th>Cell Line</th>
+              <th>Timepoint</th>
+              <th>Concentration</th>
+              <th>Direction</th>
+              <th>Gene Set Size</th>
             </tr>
           </thead>
           <tbody>
             {dataFiltered?.slice((page-1) * pageSize, page * pageSize).map(el => {
+              if (!el) return null
+              const term = el.term
+              const batch = el?.term?.split('_')[0]
+              const cellLine = el?.term?.split('_')[1]
+              const timepoint = el?.term?.split('_')[2] 
+              const batch2 = el?.term?.split('_')[3]
+              var perturbation = el?.term?.split('_')[4]
+              if (perturbation?.split(' ').length == 2) perturbation = perturbation?.split(' ')[0] + ' KO'
+              const concentration = el?.term?.split('_')[5]?.split(' ')[0] ?? 'N/A'
+              const direction = el?.term?.split(' ')[1]
               return (
-                <tr key={el?.term} className={"hover:bg-gray-100 dark:hover:bg-gray-700"}>
-                  <td className="break-all"><LinkedTerm term={`${el?.term}`}></LinkedTerm></td>
+                  <tr key={el?.term}>
+                    <td>
+                    {term}
+                  </td>
+                  <td>
+                    {perturbation}
+                  </td>
+                  <td>
+                    {cellLine}
+                  </td>
+                  <td>
+                    {timepoint}
+                  </td>
+                  <td>
+                    {direction}
+                  </td>
+                  <td>
+                    {concentration}
+                  </td>
+
                   <td className='w-3/12'>
                     <button
                       className='btn btn-xs btn-outline p-2 h-auto'

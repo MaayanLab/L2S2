@@ -17,7 +17,7 @@ import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
 import partition from '@/utils/partition'
 
-const pageSize = 10
+const pageSize = 15
 
 type GeneSetModalT = {
   type: 'UserGeneSet',
@@ -34,16 +34,6 @@ type GeneSetModalT = {
   description: string,
 } | undefined
 
-function description_markdown(text: string) {
-  if (!text) return <span className="italic">No description found</span>
-  const m = /\*\*(.+?)\*\*/.exec(text)
-  if (m) return <><span>{text.slice(0, m.index)}</span><span className="font-bold italic">{m[1]}</span><span>{text.slice(m.index + 4 + m[1].length)}</span></>
-  return text
-}
-
-function Breakable(props: { children: string }) {
-  return props.children.split('_').map((part, i) => <React.Fragment key={i}>{(i === 0 ? '' : '_') + part}<wbr /></React.Fragment>)
-}
 
 function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: FetchUserGeneSetQuery, setModalGeneSet: React.Dispatch<React.SetStateAction<GeneSetModalT>> }) {
   const genes = React.useMemo(() =>
@@ -55,15 +45,16 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
   const { page, term } = React.useMemo(() => ({ page: queryString.page ? +queryString.page : 1, term: queryString.q ?? '' }), [queryString])
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
-    variables: { genes, filterTerm: term, offset: (page-1)*pageSize, first: pageSize },
+    variables: { genes, filterTerm:  term, offset: (page-1)*pageSize, first: pageSize },
   })
+  console.log(enrichmentResults)
   React.useEffect(() => {setRawTerm(term)}, [term])
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
         {!enrichmentResults?.currentBackground?.enrich ?
           <>Rummaging through <Stats show_gene_sets />.</>
-          : <>After rummaging through <Stats show_gene_sets />. Rummagene <Image className="inline-block rounded" src="/images/rummagene_logo.png" width={50} height={100} alt="Rummagene"></Image> found {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.totalCount || 0)} statistically significant matches.</>}
+          : <>After rummaging through <Stats show_gene_sets />. LINCSearch <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> found {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.totalCount || 0)} statistically significant matches.</>}
       </h2>
       <form
         className="join flex flex-row place-content-end place-items-center"
@@ -106,10 +97,12 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         <table className="table table-xs">
           <thead>
             <tr>
-              <th>Paper</th>
-              <th>Title</th>
-              <th>Table</th>
-              <th>Column</th>
+              <th>Term</th>
+              <th>Perturbation</th>
+              <th>Cell Line</th>
+              <th>Timepoint</th>
+              <th>Concentration</th>
+              <th>Direction</th>
               <th>Gene Set Size</th>
               <th>Overlap</th>
               <th>Odds</th>
@@ -124,103 +117,77 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               </tr>
             : null}
             {enrichmentResults?.currentBackground?.enrich?.nodes?.flatMap((enrichmentResult, genesetIndex) => {
+              const term = enrichmentResult?.geneSets.nodes[0].term
+              const batch = enrichmentResult?.geneSets.nodes[0].term.split('_')[0]
+              const cellLine = enrichmentResult?.geneSets.nodes[0].term.split('_')[1]
+              const timepoint = enrichmentResult?.geneSets.nodes[0].term.split('_')[2] 
+              const batch2 = enrichmentResult?.geneSets.nodes[0].term.split('_')[3]
+              var perturbation = enrichmentResult?.geneSets.nodes[0].term.split('_')[4]
+              if (perturbation?.split(' ').length == 2) perturbation = perturbation?.split(' ')[0] + ' KO'
+
+              const concentration = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
+              const direction = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
+              
               if (!enrichmentResult?.geneSets) return null
-              const papers = {} as Record<string, {
-                tables: Record<string, { columns: Record<string, typeof enrichmentResult['geneSets']['nodes'][0]>, descriptions: Set<string> }>,
-                nTableColumns: number,
-                pmcInfoByPmcid: typeof enrichmentResult['geneSets']['nodes'][0]['geneSetPmcsById']['nodes'][0]['pmcInfoByPmcid'],
-              }>
-              let nPapers = 0
-              let nPaperTables = 0
-              let nPaperTableColumns = 0
-              for (const node of enrichmentResult?.geneSets.nodes) {
-                const [paper, _, term] = partition(node.term, '-')
-                const m = term ? /^(.+?\.\w+)-+(.+)$/.exec(term) : null
-                const table = m ? m[1] : ''
-                const column = m ? m[2] : term ?? ''
-                if (!(paper in papers)) {
-                  papers[paper] = {
-                    tables: {},
-                    nTableColumns: 0,
-                    pmcInfoByPmcid: node.geneSetPmcsById.nodes[0].pmcInfoByPmcid,
-                  }
-                  nPapers += 1
-                }
-                if(!(table in papers[paper].tables)) {
-                  papers[paper].tables[table] = { columns: {}, descriptions: new Set() }
-                  nPaperTables += 1
-                }
-                papers[paper].tables[table].columns[column] = node
-                papers[paper].tables[table].descriptions.add(node.description ?? '')
-                papers[paper].nTableColumns += 1
-                nPaperTableColumns += 1
-              }
-              return Object.entries(papers).flatMap(([pmcid, { tables, nTableColumns, pmcInfoByPmcid }], paperIndex) =>
-                Object.entries(tables).flatMap(([table, { columns, descriptions }], tableIndex) =>
-                  [
-                    ...Object.entries(columns).flatMap(([column, geneSet], columnIndex) =>
-                      <tr key={`${genesetIndex}-${paperIndex}-${tableIndex}-${columnIndex}`} className="border-b-0">
-                        {tableIndex === 0 && columnIndex === 0 ? <th rowSpan={nTableColumns+Object.keys(tables).length}>
-                          <a
-                            className="underline cursor-pointer"
-                            href={`https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcid}/`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >{pmcid}</a>
-                        </th> : null}
-                        {tableIndex === 0 && columnIndex === 0 ? <td rowSpan={nTableColumns+Object.keys(tables).length}>{pmcInfoByPmcid?.title ?? ''}</td> : null}
-                        {columnIndex === 0 ? <td rowSpan={Object.keys(columns).length}>
-                          <a
-                            className="underline cursor-pointer"
-                            href={`https://www.ncbi.nlm.nih.gov/pmc/articles/${pmcid}/bin/${table}`}
-                            target="_blank"
-                          >
-                            <Breakable>{table}</Breakable>
-                          </a>
-                        </td> : null}
-                        <td rowSpan={1}>
-                          <label
-                            htmlFor="geneSetModal"
-                            className="prose underline cursor-pointer"
-                            onClick={evt => {
-                              setModalGeneSet({
-                                type: 'GeneSet',
-                                id: geneSet.id,
-                                description: geneSet.term ?? '',
-                              })
-                            }}
-                          ><Breakable>{column}</Breakable></label>
-                        </td>
-                        {paperIndex === 0 && tableIndex === 0 && columnIndex === 0 ? <>
-                          <td rowSpan={nPaperTableColumns+nPaperTables} className="whitespace-nowrap text-underline cursor-pointer">
-                            {geneSet.nGeneIds}
-                          </td>
-                          <td rowSpan={nPaperTableColumns+nPaperTables} className="whitespace-nowrap text-underline cursor-pointer">
-                            <label
-                              htmlFor="geneSetModal"
-                              className="prose underline cursor-pointer"
-                              onClick={evt => {
-                                setModalGeneSet({
-                                  type: 'GeneSetOverlap',
-                                  id: geneSet.id,
-                                  description: `${userGeneSet?.userGeneSet?.description || 'User gene set'} & ${geneSet.term || 'Rummagene gene set'}`,
-                                  genes,
-                                })
-                              }}
-                            >{enrichmentResult?.nOverlap}</label>
-                          </td>
-                          <td rowSpan={nPaperTableColumns+nPaperTables} className="whitespace-nowrap">{enrichmentResult?.oddsRatio?.toPrecision(3)}</td>
-                          <td rowSpan={nPaperTableColumns+nPaperTables} className="whitespace-nowrap">{enrichmentResult?.pvalue?.toPrecision(3)}</td>
-                          <td rowSpan={nPaperTableColumns+nPaperTables} className="whitespace-nowrap">{enrichmentResult?.adjPvalue?.toPrecision(3)}</td>
-                        </> : null}
-                      </tr>
-                    ),
-                    <tr key={`${genesetIndex}-${paperIndex}-${tableIndex}-*`}>
-                      <td colSpan={2}><span className="text-gray-700 font-bold">Description:</span> {description_markdown(Array.from(descriptions).filter(description => !!description).join('. '))}</td>
-                    </tr>
-                  ]
-                )
+              return (
+                <tr key={genesetIndex}>
+                <td>{term}</td>
+                <td>
+                  {perturbation}
+                </td>
+                <td>
+                  {cellLine}
+                </td>
+                <td>
+                  {timepoint}
+                </td>
+                <td>
+                  {direction}
+                </td>
+                <td>
+                  {concentration}
+                </td>
+                <td>
+                <label
+                  htmlFor="geneSetModal"
+                  className="prose underline cursor-pointer"
+                  onClick={evt => {
+                    setModalGeneSet({
+                      type: 'GeneSet',
+                      id: enrichmentResult?.geneSets.nodes[0].id,
+                      description: term ?? '',
+                    })
+                  }}
+                >{enrichmentResult?.geneSets.nodes[0].nGeneIds}</label>
+                </td>
+                <td>
+                <label
+                    htmlFor="geneSetModal"
+                    className="prose underline cursor-pointer"
+                    onClick={evt => {
+                      setModalGeneSet({
+                        type: 'GeneSetOverlap',
+                        id: enrichmentResult?.geneSets.nodes[0].id,
+                        description: `${userGeneSet?.userGeneSet?.description || 'User gene set'} & ${term || 'L2S2 gene set'}`,
+                        genes,
+                      })
+                    }}
+                  >{enrichmentResult?.nOverlap}</label>
+                </td>
+                <td>
+                  {enrichmentResult?.oddsRatio?.toPrecision(3)}
+                </td>
+                <td>
+                  {enrichmentResult?.pvalue?.toPrecision(3)}
+                </td>
+                <td>
+                  {enrichmentResult?.adjPvalue?.toPrecision(3)}
+                </td>
+                
+              </tr>
+
               )
+
             })}
           </tbody>
         </table>

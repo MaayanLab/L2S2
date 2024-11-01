@@ -18,40 +18,32 @@ export default async function About() {
       <h2 className="title text-xl font-medium mb-3">About Rummagene</h2>
       <div className="flex">
         <div className="flex-col">
-        <Image className={'rounded float-right ml-5'} src={'/images/rummagene_logo.png'} width={250} height={250} alt={'Rummagene'}></Image>
+        <Image className={'rounded float-right ml-5'} src={'/images/LINCSearch_logo.png'} width={250} height={250} alt={'LINCSearch'}></Image>
           <p className="text-justify">
-          Many biomedical research papers are published every day with a portion of them containing supporting tables with
-          data about genes, transcripts, variants, and proteins. For example, supporting tables may contain differentially
-          expressed genes and proteins from transcriptomics and proteomics assays, targets of transcription factors from
-          ChIP-seq experiments, hits from genome-wide CRISPR screens, or genes identified to harbor mutations from GWAS studies.
-          Because these gene sets are commonly buried in the supplemental tables of research publications, they are not widely
-          available for search and reused. Rummagene is a web server application that provides access to hundreds of thousands human and
-          mouse gene sets extracted from supporting materials of publications listed on PubMed Central (PMC). To create
-          Rummagene, we first developed a softbot that extracts human and mouse gene sets from supporting tables of PMC publications.
-          So far, the softbot scanned <Stats show_publications bold /> to find <Stats show_pmcs bold /> that contain <Stats show_gene_sets bold />.
-          These gene sets are served for enrichment analysis, free text and table title search. Users of Rummagene can submit their own gene sets to
-          find matching gene sets ranked by their overlap with the input gene set. In addition to providing the extracted gene
-          sets for search, we investigated the massive corpus of these gene sets for statistical patterns. We show how Rummagene
-          can be used for transcription factor and kinase enrichment analyses, for universal predictions of cell types for single
-          cell RNA-seq data, and for gene function predictions. Finally, by combining gene set similarity with abstract similarity,
-          Rummagene can be used to find surprising relationships between unexpected biological processes, concepts, and named entities.
+          
           </p>
           
           <br></br>
           <p>
-            This database is updated weekly to extract gene sets automatically from newly published open access PMC articles.
+          The Library of Integrated Network-Based Cellular Signatures (LINCS) is an NIH Common Fund initiative dedicated to cataloging the global responses of human cells to various chemical, genetic, and disease-related perturbations. LINCS resources encompass experimental and computational techniques, data visualization tools, molecular and imaging data, and distinctive cellular response signatures. By compiling a comprehensive view of human cellular responses to diverse perturbations, LINCS aims to enhance our understanding of disease mechanisms and facilitate new therapeutic discoveries. Perturbations studied include drugs, genetic modifications, tissue micro-environments, antibodies, and mutations associated with diseases. Cellular responses to these perturbations are measured using transcript profiling, mass spectrometry, cell imaging, and other biochemical assays. The program emphasizes cellular functions common to different tissues and cell types that are relevant to diseases like cancer, heart disease, and neurodegenerative disorders. This article provides an overview of LINCS technologies, datasets, tools, and its commitment to data accessibility and reusability.
+          SigCom LINCS is a web-based search engine that serves over 1.5 million gene expression signatures processed, analyzed, and visualized from LINCS, GTEx, and GEO. SigCom LINCS provides rapid signature similarity search for mimickers and reversers given sets of up and down genes. LINCSearch provides fast enrichment search and term search for over 1.4 million chemical perturbation and over 280,000 CRISPR knockout signatures.
           </p>
           <br />
           <p>
-            This site is programatically accessible via a <Link href="/graphiql" className="underline cursor-pointer" target="_blank">GraphQL API</Link>.
+          This site is programmatically accessible via a <Link href="/graphiql" className="underline cursor-pointer" target="_blank">GraphQL API</Link>.
           </p>
           <br />
           <p>
-          Rummagene is actively being developed by <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
+          LINCSearch was developed by <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
           </p>
           <br />
-          <p>Please acknowledge Rummagene in your publications by citing the following reference:</p>
-          <p>Clarke, D. J. B., Marino, G. B., Deng, E. Z., Xie, Z., Evangelista, J. E. & Ma&apos;ayan, A. Rummagene: massive mining of gene sets from supporting materials of biomedical research publications. Commun Biol 7, (2024). <a className="underline cursor" href="https://doi.org/10.1038/s42003-024-06177-7" target="_blank">https://doi.org/10.1038/s42003-024-06177-7</a></p>
+          <p>Please acknowledge LINCS in your publications by citing the following references:</p>
+          <br></br>
+          <p>Evangelista, J. E., Clarke, D. J. B., Xie, Z., Lachmann, A., Jeon, M., Chen, K., Jagodnik, K. M., Jenkins, S. L., Kuleshov, M. V., Wojciechowicz, M. L., Schürer, S. C., Medvedovic, M., & Ma&apos;ayan, A. (2022). SigCom LINCS: data and metadata search engine for a million gene expression signatures. Nucleic acids research, 50(W1), W697–W709.
+            <a className="underline cursor" href="https://doi.org/10.1093/nar/gkac3287" target="_blank"> https://doi.org/10.1093/nar/gkac3287.</a></p>
+            <br></br>
+          <p>Keenan, A. B., Jenkins, S. L., Jagodnik, K. M., Koplev, S., He, E., Torre, D., Wang, Z., Dohlman, A. B., Silverstein, M. C., Lachmann, A., Kuleshov, M. V., Ma&apos;ayan, A., Stathias, V., Terryn, R., Cooper, D., Forlin, M., Koleti, A., Vidovic, D., Chung, C., Schürer, S. C., … Pillai, A. (2018). The Library of Integrated Network-Based Cellular Signatures NIH Program: System-Level Cataloging of Human Cells Response to Perturbations. Cell systems, 6(1), 13–24.
+            <a className="underline cursor" href="https://doi.org/10.1016/j.cels.2017.11.001" target="_blank"> https://doi.org/10.1016/j.cels.2017.11.001.</a></p>
         </div>
        
       </div>

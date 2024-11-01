@@ -18,14 +18,14 @@ export function TermSearchResults({ terms }: { terms: string }) {
     return (
       <>
         <Image className={'rounded mx-auto'} src={'/images/loading.gif'} width={125} height={250} alt={'Loading...'} />
-        <p>Rummaging through <Stats show_gene_sets /> with your search term.</p>
+        <p>Searching through <Stats show_gene_sets /> with your search term.</p>
       </>
     )
   }
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
-        After rummaging through <Stats show_gene_sets />. Rummagene <Image className="inline-block rounded" src="/images/rummagene_logo.png" width={50} height={100} alt="Rummagene"></Image> found your search term in the table titles of {data.geneSetTermSearch?.totalCount} gene sets.
+        After rummaging through <Stats show_gene_sets />. L2S2 <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="Rummagene"></Image> found your search term in {data.geneSetTermSearch?.totalCount} gene sets.
       </h2>
       {data.geneSetTermSearch?.nodes && data.geneSetTermSearch?.nodes.length > 0 ? <TermTable terms={data.geneSetTermSearch?.nodes}></TermTable> : null}
     </div>
