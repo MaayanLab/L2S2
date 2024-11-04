@@ -29,6 +29,12 @@ services:
     build: db
     platform: linux/amd64
     image: maayanlab/l2s2-postgres:0.0.1
+    deploy:
+      resources:
+        reservations:
+          cpus: '2.0'
+          memory: 512M
+    shm_size: 1Gb
     environment:
       - POSTGRES_DB
       - POSTGRES_USER
@@ -37,12 +43,12 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - l2s2-data:/var/lib/postgresql/data
-      
+      - l2s2-data-2:/var/lib/postgresql/data
+
 volumes:
-  l2s2-data:
+  l2s2-data-2:
     x-kubernetes:
-      size: 20Gi
+      size: 50Gi
       class: gp2
 
 x-kubernetes:
