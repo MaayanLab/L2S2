@@ -125,8 +125,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               var perturbation = enrichmentResult?.geneSets.nodes[0].term.split('_')[4]
               if (perturbation?.split(' ').length == 2) perturbation = perturbation?.split(' ')[0] + ' KO'
 
-              const concentration = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
-              const direction = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
+              const direction = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
+              const concentration = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
               
               if (!enrichmentResult?.geneSets) return null
               return (
