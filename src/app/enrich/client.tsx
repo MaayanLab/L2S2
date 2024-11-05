@@ -15,9 +15,8 @@ import useQsState from '@/utils/useQsState'
 import Stats from '../stats'
 import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
-import partition from '@/utils/partition'
 
-const pageSize = 15
+const pageSize = 12
 
 type GeneSetModalT = {
   type: 'UserGeneSet',
@@ -94,7 +93,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         </a>
       </form>
       <div className="overflow-x-auto">
-        <table className="table table-xs">
+        <table className="table table-sm">
           <thead>
             <tr>
               <th>Term</th>
@@ -133,10 +132,30 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 <tr key={genesetIndex}>
                 <td>{term}</td>
                 <td>
-                  {perturbation}
+                  {!perturbation?.includes('KO') ? 
+                  <a className='underline cursor-pointer' href={`https://go.drugbank.com/unearth/q?searcher=drugs&query=${perturbation}`} target='_blank'>
+                    {perturbation}
+                  </a>
+                    :
+                  <a className='underline cursor-pointer' href={`https://cfde-gene-pages.cloud/gene/${perturbation.replace(' KO', '')}`} target='_blank'>
+                    {perturbation}
+                  </a>}
                 </td>
                 <td>
-                  {cellLine}
+                  <a className='underline cursor-pointer' onClick={
+                    async evt => {
+                      evt.preventDefault()
+                      const res = await fetch('enrich/depmapcl', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          cellLine: cellLine,
+                        })})
+
+                        const resJson = await res.json()
+                        window.open(`https://depmap.org${resJson[0].url}`, '_blank')
+                    }
+                  }>{cellLine}</a>
                 </td>
                 <td>
                   {timepoint}
