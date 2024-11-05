@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import classNames from 'classnames'
 import blobTsv from '@/utils/blobTsv'
 import clientDownloadBlob from '@/utils/clientDownloadBlob'
+import RummageneButton from './rummageneButton'
+import RummageoButton from './rummageoButton'
 
 function ExpandableText({ text }: { text: string }) {
     const [more, setMore] = React.useState(false)
@@ -96,24 +98,8 @@ export default function GeneSetModal({ geneset, term, showModal, setShowModal }:
                             Copy Symbols to Clipboard
                         </button>
                         <EnrichrButton genes={genes} description={term}></EnrichrButton>
-                        <button
-                            className="btn btn-sm btn-outline text-xs"
-                            type="button"
-                            onClick={async (evt) => {
-                                evt.preventDefault()
-                                const result = await addUserGeneSetMutation({
-                                    variables: {
-                                        genes,
-                                        description: term,
-                                    }
-                                })
-                                const id = result.data?.addUserGeneSet?.userGeneSet?.id
-                                if (id) {
-                                    router.push(`/enrich?dataset=${id}`)
-                                }
-                            }}>
-                            Enrich on Rummagene
-                        </button>
+                        <RummageoButton genes={genes} description={term}></RummageoButton>
+                        <RummageneButton genes={genes} description={term}></RummageneButton>
                         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
                         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
                     </div>
