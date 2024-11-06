@@ -1252,6 +1252,31 @@ COMMENT ON VIEW app_public.pmc IS '@foreignKey (pmc) references app_public.gene_
 
 
 --
+-- Name: fda_counts; Type: TABLE; Schema: app_public_v2; Owner: -
+--
+
+CREATE TABLE app_public_v2.fda_counts (
+    perturbation character varying NOT NULL,
+    count integer,
+    approved boolean
+);
+
+
+--
+-- Name: gene_set_fda_counts; Type: MATERIALIZED VIEW; Schema: app_public_v2; Owner: -
+--
+
+CREATE MATERIALIZED VIEW app_public_v2.gene_set_fda_counts AS
+ SELECT gs.id,
+    fda.perturbation,
+    fda.count,
+    fda.approved
+   FROM (app_public_v2.gene_set gs
+     JOIN app_public_v2.fda_counts fda ON ((replace(replace(split_part((gs.term)::text, '_'::text, 5), ' up'::text, ' '::text), ' down'::text, ' '::text) = (fda.perturbation)::text)))
+  WITH NO DATA;
+
+
+--
 -- Name: gene_set_pmc; Type: MATERIALIZED VIEW; Schema: app_public_v2; Owner: -
 --
 
@@ -1396,6 +1421,14 @@ ALTER TABLE ONLY app_public.user_gene_set
 
 ALTER TABLE ONLY app_public_v2.background
     ADD CONSTRAINT background_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: fda_counts fda_counts_pkey; Type: CONSTRAINT; Schema: app_public_v2; Owner: -
+--
+
+ALTER TABLE ONLY app_public_v2.fda_counts
+    ADD CONSTRAINT fda_counts_pkey PRIMARY KEY (perturbation);
 
 
 --
@@ -1562,6 +1595,13 @@ CREATE INDEX background_gene_ids_idx ON app_public_v2.background USING gin (gene
 
 
 --
+-- Name: gene_set_fda_counts_id_idx; Type: INDEX; Schema: app_public_v2; Owner: -
+--
+
+CREATE INDEX gene_set_fda_counts_id_idx ON app_public_v2.gene_set_fda_counts USING btree (id);
+
+
+--
 -- Name: gene_set_gene_ids_idx; Type: INDEX; Schema: app_public_v2; Owner: -
 --
 
@@ -1695,4 +1735,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20240105161415'),
     ('20240108174441'),
     ('20240116174826'),
-    ('20240312145213');
+    ('20240312145213'),
+    ('20241106164415');

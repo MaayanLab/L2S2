@@ -46,6 +46,9 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     skip: genes.length === 0,
     variables: { genes, filterTerm:  term, offset: (page-1)*pageSize, first: pageSize },
   })
+
+  const [showTerm, setShowTerm] = React.useState(false)
+  const [fdaFilter, setFdaFilter] = React.useState(false)
   console.log(enrichmentResults)
   React.useEffect(() => {setRawTerm(term)}, [term])
   return (
@@ -55,6 +58,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           <>Rummaging through <Stats show_gene_sets />.</>
           : <>After rummaging through <Stats show_gene_sets />. LINCSearch <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> found {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.totalCount || 0)} statistically significant matches.</>}
       </h2>
+      <div className='row'>
+        <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>
       <form
         className="join flex flex-row place-content-end place-items-center"
         onSubmit={evt => {
@@ -92,16 +97,20 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           </div>
         </a>
       </form>
+      </div>
       <div className="overflow-x-auto">
-        <table className="table table-sm">
+        <table className="table table-xs">
           <thead>
             <tr>
-              <th>Term</th>
+              <th className={showTerm ? '' : 'hidden'}>Term</th>
+              
               <th>Perturbation</th>
               <th>Cell Line</th>
               <th>Timepoint</th>
               <th>Concentration</th>
               <th>Direction</th>
+              <th>Signature Count</th>
+              <th>Approved</th>
               <th>Gene Set Size</th>
               <th>Overlap</th>
               <th>Odds</th>
@@ -124,22 +133,35 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               var perturbation = enrichmentResult?.geneSets.nodes[0].term.split('_')[4]
               if (perturbation?.split(' ').length == 2) perturbation = perturbation?.split(' ')[0] + ' KO'
 
+              const count = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].count
+              const approved = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved
+              console.log(enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0])
+
               const direction = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
               const concentration = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
               
               if (!enrichmentResult?.geneSets) return null
               return (
                 <tr key={genesetIndex}>
-                <td>{term}</td>
+                <td className={showTerm ? '' : 'hidden'}>{term}</td>
                 <td>
                   {!perturbation?.includes('KO') ? 
-                  <a className='underline cursor-pointer' href={`https://go.drugbank.com/unearth/q?searcher=drugs&query=${perturbation}`} target='_blank'>
+                  <>
+                  
+                  <a className='underline cursor-pointer' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${perturbation}`} target='_blank'>
                     {perturbation}
                   </a>
+                  </>
                     :
-                  <a className='underline cursor-pointer' href={`https://cfde-gene-pages.cloud/gene/${perturbation.replace(' KO', '')}`} target='_blank'>
+                    <>
                     {perturbation}
-                  </a>}
+                    <a className='underline cursor-pointer mx-2' href={`https://maayanlab.cloud/Harmonizome/gene/${perturbation.replace(' KO', '')}`} target='_blank'>
+                      <Image className="inline-block rounded" src="/images/harmonizome_logo_30x26.png" width={20} height={20} alt="Harmonizome"/>
+                    </a>
+                    <a className='underline cursor-pointer' href={`https://maayanlab.cloud/prismexp/g/${perturbation.replace(' KO', '')}`} target='_blank'>
+                      <Image className="inline-block rounded" src="/images/prismexp.png" width={20} height={20} alt="PrismEXP"/>
+                    </a>
+                  </>}
                 </td>
                 <td>
                   <a className='underline cursor-pointer' onClick={
@@ -165,6 +187,12 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 </td>
                 <td>
                   {concentration}
+                </td>
+                <td>
+                  {count}
+                </td>
+                <td>
+                  {approved ? 'Yes' : 'No'}
                 </td>
                 <td>
                 <label

@@ -36,12 +36,10 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
             term
             description
             nGeneIds
-            geneSetPmcsById(first: 1) {
+            geneSetFdaCountsById {
               nodes {
-                pmcInfoByPmcid {
-                  pmcid
-                  title
-                }
+                approved
+                count
               }
             }
           }

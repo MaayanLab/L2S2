@@ -22,7 +22,8 @@ services:
     platform: linux/amd64
     image: maayanlab/l2s2-enrich:0.0.1
     environment:
-      - 'ROCKET_DATABASES={postgres={url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@l2s2-postgres/${POSTGRES_DB}"}}'
+      - 'ROCKET_DATABASES={postgres={url="postgres://${POSTGRES_USER}:postgres@l2s2-postgres/${POSTGRES_DB}"}}'
+      #- 'ROCKET_DATABASES={postgres={url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@l2s2-postgres/${POSTGRES_DB}"}}'
     ports:
       - 8000:8000
   l2s2-postgres:
@@ -43,7 +44,8 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - l2s2-data-2:/var/lib/postgresql/data
+      - ./data/postgres/:/var/lib/postgresql/data
+      #- l2s2-data-2:/var/lib/postgresql/data
 
 volumes:
   l2s2-data-2:
