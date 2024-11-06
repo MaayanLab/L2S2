@@ -1,9 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverActions: {
-      allowedOrigins: ['*'],
-    },
+    serverActions: true,
   },
   async rewrites() {
     return [
