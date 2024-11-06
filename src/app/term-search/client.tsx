@@ -33,9 +33,9 @@ export function TermSearchResults({ terms }: { terms: string }) {
 }
 
 const examples = [
-  'neuron',
-  'CRISPR',
-  'PBMC',
+  'Dexamethasone',
+  'STAT3',
+  'HCC515',
 ]
 
 export default function TermSearchClientPage(props: { searchParams?: { page?: string, q?: string } }) {
