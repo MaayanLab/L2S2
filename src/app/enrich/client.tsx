@@ -60,6 +60,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
       </h2>
       <div className='row'>
         <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>
+        <button className='button btn btn-sm float-left mx-4' onClick={() => setFdaFilter(prev => !prev)}>{fdaFilter ? 'Show FDA Approved Drugs' : 'Show All Drugs'}</button>
       <form
         className="join flex flex-row place-content-end place-items-center"
         onSubmit={evt => {

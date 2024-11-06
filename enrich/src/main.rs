@@ -42,7 +42,7 @@ struct Bitmap<B: Integer + Copy + Into<usize>> {
     columns_str: Vec<String>,
     values: Vec<(Uuid, SparseBitVec<B>)>,
     // TODO: should we try to preserve gene list ordering in dump (?)
-    terms: HashMap<Uuid, Vec<(Uuid, String, String)>>,
+    terms: HashMap<Uuid, Vec<(Uuid, String, String, bool)>>,
 }
 
 impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
@@ -140,7 +140,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
         }
 
         // compute the index in memory
-        sqlx::query("select id, term, coalesce(description, '') as description, hash, gene_ids from app_public_v2.gene_set;")
+        sqlx::query("select gs.id, gs.term, coalesce(gs.description, '') as description, gs.hash, gs.gene_ids, fda.approved as fda_approved from  app_public_v2.gene_set gs left join app_public_v2.gene_set_fda_counts fda on gs.id = fda.id;")
             .fetch(&mut **db)
             .for_each(|row| {
                 let row = row.unwrap();
@@ -148,6 +148,14 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                 let term: String = row.try_get("term").unwrap();
                 let description: String = row.try_get("description").unwrap();
                 let gene_set_hash: Result<uuid::Uuid, _> = row.try_get("hash");
+                let fda_approved: bool = match row.try_get("fda_approved") {
+                    Ok(value) => match value.as_str() {
+                        "t" => true,
+                        "f" => false,
+                        _ => false, // or some other default value
+                    },
+                    Err(_) => false, // or some other default value
+                };
                 if let Ok(gene_set_hash) = gene_set_hash {
                     if !bitmap.terms.contains_key(&gene_set_hash) {
                         let gene_ids: sqlx::types::Json<HashMap<String, sqlx::types::JsonValue>> = row.try_get("gene_ids").unwrap();
@@ -155,7 +163,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                         let bitset = SparseBitVec::new(&bitmap.columns, &gene_ids);
                         bitmap.values.push((gene_set_hash, bitset));
                     }
-                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description));
+                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description, fda_approved));
                 }
                 future::ready(())
             })
@@ -250,7 +258,7 @@ async fn delete(
 // query a specific background_id, providing the bitset vector as input
 //  the result are the gene_set_ids & relevant metrics
 // this can be pretty fast since the index is saved in memory and the overlaps can be computed in parallel
-#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>", data = "<input_gene_set>")]
+#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>", data = "<input_gene_set>")]
 async fn query(
     mut db: Connection<Postgres>,
     state: &State<PersistentState>,
@@ -262,6 +270,7 @@ async fn query(
     adj_pvalue_le: Option<f64>,
     offset: Option<usize>,
     limit: Option<usize>,
+    filter_fda: Option<bool>,
 ) -> Result<QueryResponse, Custom<String>> {
     let background_id = {
         if background_id == "latest" {
@@ -337,8 +346,17 @@ async fn query(
             let (gene_set_hash, _gene_set) = bitmap.values.get(result.index)?;
             if let Some(filter_term) = &filter_term {
                 if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                    if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description)| gene_set_term.to_lowercase().contains(filter_term)) {
+                    if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)| gene_set_term.to_lowercase().contains(filter_term)) {
                         return None
+                    }
+                }
+            }
+            if let Some(filter_fda) = filter_fda {
+                if filter_fda {
+                    if let Some(terms) = bitmap.terms.get(gene_set_hash) {
+                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, fda_approved)| !*fda_approved) {
+                            return None
+                        }
                     }
                 }
             }
