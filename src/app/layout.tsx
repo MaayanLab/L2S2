@@ -130,7 +130,7 @@ export default function RootLayout({
                 <ul>
                   <li><Link href="mailto:avi.maayan@mssm.edu" target="_blank">Contact Us</Link></li>
                   <li>
-                    <Link href="https://github.com/MaayanLab/RummaLINCS" target="_blank" rel="noopener noreferrer">
+                    <Link href="https://github.com/MaayanLab/L2S2" target="_blank" rel="noopener noreferrer">
                       Source Code
                     </Link>
                   </li>
