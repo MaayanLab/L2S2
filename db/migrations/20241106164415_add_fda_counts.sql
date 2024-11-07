@@ -9,7 +9,6 @@ create table app_public_v2.fda_counts (
 grant select on app_public_v2.fda_counts to guest;
 grant all privileges on app_public_v2.fda_counts to authenticated;
 
-
 create materialized view app_public_v2.gene_set_fda_counts as
 select gs.id, fda.perturbation, fda.count, fda.approved
 from app_public_v2.gene_set gs
@@ -20,6 +19,8 @@ create index gene_set_fda_counts_id_idx on app_public_v2.gene_set_fda_counts (id
 
 grant select on app_public_v2.gene_set_fda_counts to guest;
 grant all privileges on app_public_v2.gene_set_fda_counts to authenticated;
+
+comment on materialized view app_public_v2.gene_set_fda_counts is E'@foreignKey (id) references app_public_v2.gene_set (id)';
 
 create function app_public_v2.get_fda_counts_by_id(id uuid)
 returns setof app_public_v2.gene_set_fda_counts as
