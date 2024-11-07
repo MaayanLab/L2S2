@@ -338,8 +338,17 @@ async fn query(
         .filter_map(|result| {
             let (gene_set_hash, _gene_set) = bitmap.values.get(result.index)?;
             if let Some(filter_term) = &filter_term {
+                let is_up = filter_term.contains(" up");
+                let is_down = filter_term.contains(" down");
+                let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
                 if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                    if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)| gene_set_term.to_lowercase().contains(filter_term)) {
+                    if is_up && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)|  gene_set_term.to_lowercase().contains(" up")) {
+                        return None
+                    }
+                    else if is_down && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)|  gene_set_term.to_lowercase().contains(" down")) {
+                        return None
+                    }
+                    else if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)| gene_set_term.to_lowercase().contains(&filter_term_clean)) {
                         return None
                     }
                 }
