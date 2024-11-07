@@ -105,7 +105,7 @@ export default function RootLayout({
       </head>
       <ApolloWrapper>
         <RuntimeConfig>
-          <body className="min-h-screen flex flex-col bg-gradient-to-t from-blue-900 to-white dark:from-black dark:to-pink-500 dark:text-white">
+          <body className="min-h-screen flex flex-col bg-gradient-to-t from-blue-900 to-white dark:from-black dark:to-blue-900 dark:text-white">
             <header>
               <div className="navbar block text-center">
                 <div className="navbar-center">

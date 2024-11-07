@@ -39,18 +39,24 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '' })
   const [rawTerm, setRawTerm] = React.useState('')
-  const { page, term } = React.useMemo(() => ({ page: queryString.page ? +queryString.page : 1, term: queryString.q ?? '' }), [queryString])
-  const { data: enrichmentResults } = useEnrichmentQueryQuery({
-    skip: genes.length === 0,
-    variables: { genes, filterTerm:  term, offset: (page-1)*pageSize, first: pageSize },
-  })
-
   const [showTerm, setShowTerm] = React.useState(false)
   const [fdaFilter, setFdaFilter] = React.useState(false)
-  console.log(enrichmentResults)
-  React.useEffect(() => {setRawTerm(term)}, [term])
+  const { page, term } = React.useMemo(() => ({ 
+    page: queryString.page ? +queryString.page : 1, 
+    term: queryString.q ?? ''
+  }), [queryString]);
+  const { data: enrichmentResults } = useEnrichmentQueryQuery({
+    skip: genes.length === 0,
+    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fdaFilter },
+  })
+
+  React.useEffect(() => {
+    console.log(term)
+    setRawTerm(term)
+  }, [term])
+
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
@@ -60,9 +66,29 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
       </h2>
       <div className='row'>
         <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>
-        <button className='button btn btn-sm float-left mx-4' onClick={() => setFdaFilter(prev => !prev)}>{fdaFilter ? 'Show FDA Approved Drugs' : 'Show All Drugs'}</button>
+        <button className='button btn btn-sm float-left mx-4' onClick={() => setFdaFilter(prev => !prev)}>{fdaFilter ? 'Show All Drugs' : 'Show FDA Approved Drugs'}</button>
+        <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
+        
+          <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
+            "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
+              evt.preventDefault()
+              setQueryString({ page: '1', q: rawTerm, dir: '' })
+              }}>BOTH</div>
+          <div className={queryString.dir == 'up' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
+            "join-item px-3 py-1.5  bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
+              evt.preventDefault()
+              setQueryString({ page: '1', q: rawTerm, dir: 'up' })
+            }
+            }>UP</div>
+          <div className={queryString.dir == 'down' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
+            "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
+              evt.preventDefault()
+              setQueryString({ page: '1', q: rawTerm, dir: 'down' })
+            }}>DOWN</div>
+        </div>
       <form
-        className="join flex flex-row place-content-end place-items-center"
+        id="search-form"
+        className="join flex flex-row place-content-end place-items-center mt-2"
         onSubmit={evt => {
           evt.preventDefault()
           setQueryString({ page: '1', q: rawTerm })
@@ -104,14 +130,13 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           <thead>
             <tr>
               <th className={showTerm ? '' : 'hidden'}>Term</th>
-              
               <th>Perturbation</th>
               <th>Cell Line</th>
               <th>Timepoint</th>
               <th>Concentration</th>
               <th>Direction</th>
               <th>Signature Count</th>
-              <th>Approved</th>
+              <th>FDA Approved</th>
               <th>Gene Set Size</th>
               <th>Overlap</th>
               <th>Odds</th>
@@ -136,21 +161,20 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
 
               const count = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].count
               const approved = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved
-              console.log(enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0])
 
               const direction = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
               const concentration = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
               
               if (!enrichmentResult?.geneSets) return null
               return (
-                <tr key={genesetIndex}>
+                <tr key={genesetIndex} className='text-center'>
                 <td className={showTerm ? '' : 'hidden'}>{term}</td>
                 <td>
                   {!perturbation?.includes('KO') ? 
                   <>
-                  
-                  <a className='underline cursor-pointer' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${perturbation}`} target='_blank'>
-                    {perturbation}
+                  {perturbation}
+                  <a className='underline cursor-pointer mx-2' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${perturbation}`} target='_blank'>
+                  <Image className="inline-block rounded" src="/images/drug_vector_art.png" width={20} height={20} alt="PubChem"/>
                   </a>
                   </>
                     :

@@ -45,7 +45,7 @@ export default function GeneSetModal({ geneset, term, showModal, setShowModal }:
                         {geneset ?
                             <div className="overflow-x-auto block">
                                 <table className="table table-xs table-pin-rows table-pin-cols">
-                                    <thead className="bg-white sticky top-0">
+                                    <thead className="bg-white dark:bg-slate-800 sticky top-0">
                                         <th>&nbsp;</th>
                                         <th>Symbol</th>
                                         <th>Description</th>
