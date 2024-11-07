@@ -15,6 +15,7 @@ import useQsState from '@/utils/useQsState'
 import Stats from '../stats'
 import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
+import { dir } from 'console'
 
 const pageSize = 12
 
@@ -39,17 +40,18 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false' })
   const [rawTerm, setRawTerm] = React.useState('')
   const [showTerm, setShowTerm] = React.useState(false)
-  const [fdaFilter, setFdaFilter] = React.useState(false)
-  const { page, term } = React.useMemo(() => ({ 
+  //const [fdaFilter, setFdaFilter] = React.useState(false)
+  const { page, term, fda } = React.useMemo(() => ({ 
     page: queryString.page ? +queryString.page : 1, 
-    term: queryString.q ?? ''
+    term: queryString.q ?? '',
+    fda: queryString.fda === 'true'
   }), [queryString]);
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
-    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fdaFilter },
+    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda },
   })
 
   React.useEffect(() => {
@@ -66,7 +68,9 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
       </h2>
       <div className='row'>
         <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>
-        <button className='button btn btn-sm float-left mx-4' onClick={() => setFdaFilter(prev => !prev)}>{fdaFilter ? 'Show All Drugs' : 'Show FDA Approved Drugs'}</button>
+        <button className='button btn btn-sm float-left mx-4' onClick={() => {
+          if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', dir: queryString.dir }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show All Drugs' : 'Show FDA Approved Drugs'}</button>
         <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
         
           <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
