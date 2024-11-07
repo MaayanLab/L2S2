@@ -18,15 +18,15 @@ export default async function About() {
       <h2 className="title text-xl font-medium mb-3">About Rummagene</h2>
       <div className="flex">
         <div className="flex-col">
-        <Image className={'rounded float-right ml-5'} src={'/images/LINCSearch_logo.png'} width={250} height={250} alt={'LINCSearch'}></Image>
+        <Image className={'rounded float-right ml-5'} src={'/images/LINCSearch_logo.png'} width={250} height={250} alt={'L2S2'}></Image>
           <p className="text-justify">
           
           </p>
           
           <br></br>
           <p>
-          The Library of Integrated Network-Based Cellular Signatures (LINCS) is an NIH Common Fund initiative dedicated to cataloging the global responses of human cells to various chemical, genetic, and disease-related perturbations. LINCS resources encompass experimental and computational techniques, data visualization tools, molecular and imaging data, and distinctive cellular response signatures. By compiling a comprehensive view of human cellular responses to diverse perturbations, LINCS aims to enhance our understanding of disease mechanisms and facilitate new therapeutic discoveries. Perturbations studied include drugs, genetic modifications, tissue micro-environments, antibodies, and mutations associated with diseases. Cellular responses to these perturbations are measured using transcript profiling, mass spectrometry, cell imaging, and other biochemical assays. The program emphasizes cellular functions common to different tissues and cell types that are relevant to diseases like cancer, heart disease, and neurodegenerative disorders. This article provides an overview of LINCS technologies, datasets, tools, and its commitment to data accessibility and reusability.
-          SigCom LINCS is a web-based search engine that serves over 1.5 million gene expression signatures processed, analyzed, and visualized from LINCS, GTEx, and GEO. SigCom LINCS provides rapid signature similarity search for mimickers and reversers given sets of up and down genes. LINCSearch provides fast enrichment search and term search for over 1.4 million chemical perturbation and over 280,000 CRISPR knockout signatures.
+          The Library of Integrated Network-Based Cellular Signatures (LINCS) is an NIH Common Fund initiative dedicated to cataloging the global responses of human cells to various chemical, genetic, and disease-related perturbations. LINCS resources encompass experimental and computational techniques, data visualization tools, molecular and imaging data, and distinctive cellular response signatures. By compiling a comprehensive view of human cellular responses to diverse perturbations, LINCS aims to enhance our understanding of disease mechanisms and facilitate new therapeutic discoveries. Perturbations studied include drugs, genetic modifications, tissue micro-environments, antibodies, and mutations associated with diseases. Cellular responses to these perturbations are measured using transcript profiling, mass spectrometry, cell imaging, and other biochemical assays. The program emphasizes cellular functions common to different tissues and cell types that are relevant to diseases like cancer, heart disease, and neurodegenerative disorders.
+          Gene set signatures are sourced from SigCom LINCS, a web-based search engine that serves over 1.5 million gene expression signatures processed, analyzed, and visualized from LINCS, GTEx, and GEO. SigCom LINCS provides rapid signature similarity search for mimickers and reversers given sets of up and down genes. L2W2 provides fast enrichment search and term search for over 1.4 million chemical perturbation and over 280,000 CRISPR knockout signatures.
           </p>
           <br />
           <p>
@@ -34,7 +34,7 @@ export default async function About() {
           </p>
           <br />
           <p>
-          LINCSearch was developed by <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
+          L2S2 was developed by <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
           </p>
           <br />
           <p>Please acknowledge LINCS in your publications by citing the following references:</p>
