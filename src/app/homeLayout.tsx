@@ -12,9 +12,6 @@ export default function HomeLayout({ children }: React.PropsWithChildren<{}>) {
           </div>
         </div>
         <div className="text-center p-10">
-          <h2 className="text-3xl font-bold p-2 pb-0">
-            L2S2
-          </h2>
           <h3 className="text-xl font-bold p-2 pt-0">
             LINCS L1000 Signatures Search
           </h3>
