@@ -183,10 +183,10 @@ CREATE TABLE app_public_v2.background (
 
 
 --
--- Name: indexed_enrich(app_public_v2.background, uuid[], character varying, integer, double precision, double precision, integer, integer); Type: FUNCTION; Schema: app_private_v2; Owner: -
+-- Name: indexed_enrich(app_public_v2.background, uuid[], character varying, integer, double precision, double precision, integer, integer, boolean); Type: FUNCTION; Schema: app_private_v2; Owner: -
 --
 
-CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.background, gene_ids uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.background, gene_ids uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false) RETURNS app_public_v2.paginated_enrich_result
     LANGUAGE plpython3u IMMUTABLE PARALLEL SAFE
     AS $$
   import os, requests
@@ -194,12 +194,13 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
     overlap_ge=overlap_ge,
     pvalue_le=pvalue_le,
     adj_pvalue_le=adj_pvalue_le,
+    filter_fda=filter_fda
   )
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first
   req = requests.post(
-    f"{os.environ.get('ENRICH_URL', 'http://rummagene-enrich:8000')}/{background['id']}",
+    f"{os.environ.get('ENRICH_URL', 'http://l2s2-enrich:8000')}/{background['id']}",
     params=params,
     json=gene_ids,
   )
@@ -690,10 +691,10 @@ $$;
 
 
 --
--- Name: background_enrich(app_public_v2.background, character varying[], character varying, integer, double precision, double precision, integer, integer); Type: FUNCTION; Schema: app_public_v2; Owner: -
+-- Name: background_enrich(app_public_v2.background, character varying[], character varying, integer, double precision, double precision, integer, integer, boolean); Type: FUNCTION; Schema: app_public_v2; Owner: -
 --
 
-CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.background, genes character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.background, genes character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false) RETURNS app_public_v2.paginated_enrich_result
     LANGUAGE sql IMMUTABLE SECURITY DEFINER PARALLEL SAFE
     AS $$
   select r.*
@@ -705,7 +706,8 @@ CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.backgro
     background_enrich.pvalue_le,
     background_enrich.adj_pvalue_le,
     background_enrich."offset",
-    background_enrich."first"
+    background_enrich."first",
+    background_enrich.filter_fda
   ) r;
 $$;
 
@@ -880,6 +882,49 @@ CREATE FUNCTION app_public_v2.gene_set_term_search(terms character varying[]) RE
   from app_public_v2.gene_set gs
   inner join unnest(terms) ut(term) on gs.term ilike ('%' || ut.term || '%');
 $$;
+
+
+--
+-- Name: fda_counts; Type: TABLE; Schema: app_public_v2; Owner: -
+--
+
+CREATE TABLE app_public_v2.fda_counts (
+    perturbation character varying NOT NULL,
+    count integer,
+    approved boolean
+);
+
+
+--
+-- Name: gene_set_fda_counts; Type: MATERIALIZED VIEW; Schema: app_public_v2; Owner: -
+--
+
+CREATE MATERIALIZED VIEW app_public_v2.gene_set_fda_counts AS
+ SELECT gs.id,
+    fda.perturbation,
+    fda.count,
+    fda.approved
+   FROM (app_public_v2.gene_set gs
+     JOIN app_public_v2.fda_counts fda ON ((replace(replace(split_part((gs.term)::text, '_'::text, 5), ' up'::text, ' '::text), ' down'::text, ' '::text) = (fda.perturbation)::text)))
+  WITH NO DATA;
+
+
+--
+-- Name: MATERIALIZED VIEW gene_set_fda_counts; Type: COMMENT; Schema: app_public_v2; Owner: -
+--
+
+COMMENT ON MATERIALIZED VIEW app_public_v2.gene_set_fda_counts IS '@foreignKey (id) references app_public_v2.gene_set (id)';
+
+
+--
+-- Name: get_fda_counts_by_id(uuid); Type: FUNCTION; Schema: app_public_v2; Owner: -
+--
+
+CREATE FUNCTION app_public_v2.get_fda_counts_by_id(id uuid) RETURNS SETOF app_public_v2.gene_set_fda_counts
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+    AS $_$
+select * from app_public_v2.gene_set_fda_counts where id = $1
+$_$;
 
 
 --
@@ -1249,31 +1294,6 @@ CREATE VIEW app_public.pmc AS
 --
 
 COMMENT ON VIEW app_public.pmc IS '@foreignKey (pmc) references app_public.gene_set_pmc (pmc)';
-
-
---
--- Name: fda_counts; Type: TABLE; Schema: app_public_v2; Owner: -
---
-
-CREATE TABLE app_public_v2.fda_counts (
-    perturbation character varying NOT NULL,
-    count integer,
-    approved boolean
-);
-
-
---
--- Name: gene_set_fda_counts; Type: MATERIALIZED VIEW; Schema: app_public_v2; Owner: -
---
-
-CREATE MATERIALIZED VIEW app_public_v2.gene_set_fda_counts AS
- SELECT gs.id,
-    fda.perturbation,
-    fda.count,
-    fda.approved
-   FROM (app_public_v2.gene_set gs
-     JOIN app_public_v2.fda_counts fda ON ((replace(replace(split_part((gs.term)::text, '_'::text, 5), ' up'::text, ' '::text), ' down'::text, ' '::text) = (fda.perturbation)::text)))
-  WITH NO DATA;
 
 
 --
@@ -1736,4 +1756,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20240108174441'),
     ('20240116174826'),
     ('20240312145213'),
-    ('20241106164415');
+    ('20241106164415'),
+    ('20241106193605');

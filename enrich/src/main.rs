@@ -148,14 +148,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                 let term: String = row.try_get("term").unwrap();
                 let description: String = row.try_get("description").unwrap();
                 let gene_set_hash: Result<uuid::Uuid, _> = row.try_get("hash");
-                let fda_approved: bool = match row.try_get("fda_approved") {
-                    Ok(value) => match value.as_str() {
-                        "t" => true,
-                        "f" => false,
-                        _ => false, // or some other default value
-                    },
-                    Err(_) => false, // or some other default value
-                };
+                let fda_approved: bool = row.try_get::<bool, &str>("fda_approved").unwrap_or(false);
                 if let Ok(gene_set_hash) = gene_set_hash {
                     if !bitmap.terms.contains_key(&gene_set_hash) {
                         let gene_ids: sqlx::types::Json<HashMap<String, sqlx::types::JsonValue>> = row.try_get("gene_ids").unwrap();
@@ -216,7 +209,7 @@ async fn get_gmt(
     Ok(TextStream! {
         for (gene_set_hash, gene_set) in bitmap.values.iter() {
             if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                for (_row_id, term, description) in terms.iter() {
+                for (_row_id, term, description, _fda_approved) in terms.iter() {
                     let mut line = String::new();
                     line.push_str(term);
                     line.push_str("\t");
