@@ -103,6 +103,21 @@ CREATE TYPE app_public.gene_set_library_enrich_result AS (
 
 
 --
+-- Name: consensus_result; Type: TYPE; Schema: app_public_v2; Owner: -
+--
+
+CREATE TYPE app_public_v2.consensus_result AS (
+	drug character varying,
+	count_significant integer,
+	count_insignificant integer,
+	approved boolean,
+	odds_ratio double precision,
+	pvalue double precision,
+	adj_pvalue double precision
+);
+
+
+--
 -- Name: enrich_result; Type: TYPE; Schema: app_public_v2; Owner: -
 --
 
@@ -138,7 +153,9 @@ CREATE TYPE app_public_v2.gene_mapping AS (
 
 CREATE TYPE app_public_v2.paginated_enrich_result AS (
 	nodes app_public_v2.enrich_result[],
-	total_count integer
+	consensus app_public_v2.consensus_result[],
+	total_count integer,
+	consensus_count integer
 );
 
 
@@ -204,8 +221,10 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
     params=params,
     json=gene_ids,
   )
-  total_count = req.headers.get('Content-Range').partition('/')[-1]
-  return dict(nodes=req.json(), total_count=total_count)
+  print(req.headers.keys())
+  total_count = req.headers.get('Content-Range').split('/')[1]
+  consensus_count = req.headers.get('Content-Range').split('/')[2]
+  return dict(nodes=req.json()['results'], consensus=req.json()['consensus'], total_count=total_count, consensus_count=consensus_count)
 $$;
 
 
@@ -1757,4 +1776,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20240116174826'),
     ('20240312145213'),
     ('20241106164415'),
-    ('20241106193605');
+    ('20241106193605'),
+    ('20241111165343');

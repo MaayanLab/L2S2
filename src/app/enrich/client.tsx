@@ -15,7 +15,6 @@ import useQsState from '@/utils/useQsState'
 import Stats from '../stats'
 import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
-import { dir } from 'console'
 
 const pageSize = 12
 
@@ -40,19 +39,22 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false' })
   const [rawTerm, setRawTerm] = React.useState('')
   const [showTerm, setShowTerm] = React.useState(false)
   //const [fdaFilter, setFdaFilter] = React.useState(false)
-  const { page, term, fda } = React.useMemo(() => ({ 
+  const { page, term, fda, consensus } = React.useMemo(() => ({ 
     page: queryString.page ? +queryString.page : 1, 
     term: queryString.q ?? '',
-    fda: queryString.fda === 'true'
+    fda: queryString.fda === 'true',
+    consensus: queryString.consensus === 'true'
   }), [queryString]);
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
     variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda },
   })
+
+  console.log(enrichmentResults)
 
   React.useEffect(() => {
     console.log(term)
@@ -67,12 +69,14 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           : <>After rummaging through <Stats show_gene_sets />. L2S2 <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> found {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.totalCount || 0)} statistically significant matches.</>}
       </h2>
       <div className='row'>
-        <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>
+        {consensus ? <></> : <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>}
         <button className='button btn btn-sm float-left mx-4' onClick={() => {
           if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', dir: queryString.dir }) 
           else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show All Drugs' : 'Show FDA Approved Drugs'}</button>
-        <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
-        
+          <button className='button btn btn-sm float-left mr-4' onClick={() => {
+          if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show Individual Signatures' : 'Show Consensus Perturbations'}</button>
+         {consensus ? <></> : <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
           <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
             "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
               evt.preventDefault()
@@ -89,10 +93,10 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               evt.preventDefault()
               setQueryString({ page: '1', q: rawTerm, dir: 'down' })
             }}>DOWN</div>
-        </div>
+        </div>}
       <form
         id="search-form"
-        className="join flex flex-row place-content-end place-items-center mt-2"
+        className="join flex flex-row place-content-end place-items-center mt-10"
         onSubmit={evt => {
           evt.preventDefault()
           setQueryString({ page: '1', q: rawTerm })
@@ -130,6 +134,47 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
       </form>
       </div>
       <div className="overflow-x-auto">
+        {consensus ? 
+        <>
+        <table className="table table-xs">
+          <thead>
+            <tr>
+              <th className={showTerm ? '' : 'hidden'}>Term</th>
+              <th>Perturbation</th>
+              <th>Significant Signatures</th>
+              <th>Insignificant Signatures</th>
+              <th>FDA Approved</th>
+              <th>Odds Ratio</th>
+              <th>PValue</th>
+              <th>AdjPValue</th>
+            </tr>
+          </thead>
+          <tbody>
+            {!enrichmentResults?.currentBackground?.enrich ?
+              <tr>
+                <td colSpan={7}><Loading /></td>
+              </tr>
+            : null}
+            {enrichmentResults?.currentBackground?.enrich?.consensus?.flatMap((enrichmentResult, genesetIndex) => {
+              return (
+                <tr key={genesetIndex}>
+                  <td>{enrichmentResult?.drug}
+                  <a className='underline cursor-pointer mx-2' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${enrichmentResult?.drug}`} target='_blank'>
+                  <Image className="inline-block rounded" src="/images/drug_vector_art.png" width={20} height={20} alt="PubChem"/>
+                  </a>
+                  </td>
+                  <td>{enrichmentResult?.countSignificant}</td>
+                  <td>{enrichmentResult?.countInsignificant}</td>
+                  <td>{enrichmentResult?.approved ? 'Yes' : 'No'}</td>
+                  <td>{enrichmentResult?.oddsRatio?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.pvalue?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.adjPvalue?.toPrecision(3)}</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        </> : 
         <table className="table table-xs">
           <thead>
             <tr>
@@ -266,10 +311,18 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
 
             })}
           </tbody>
-        </table>
+        </table>}
       </div>
       {enrichmentResults?.currentBackground?.enrich ?
         <div className="w-full flex flex-col items-center">
+          {consensus ? <Pagination
+            page={page}
+            totalCount={enrichmentResults?.currentBackground?.enrich?.consensusCount ? enrichmentResults?.currentBackground?.enrich.consensusCount : undefined}
+            pageSize={pageSize}
+            onChange={page => {
+              setQueryString({ page: `${page}`, q: term })
+            }}
+          />:
           <Pagination
             page={page}
             totalCount={enrichmentResults?.currentBackground?.enrich?.totalCount ? enrichmentResults?.currentBackground?.enrich.totalCount : undefined}
@@ -277,7 +330,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             onChange={page => {
               setQueryString({ page: `${page}`, q: term })
             }}
-          />
+          />}
         </div>
       : null}
     </div>

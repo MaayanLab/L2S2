@@ -9,11 +9,11 @@ use num::Integer;
 use rocket::http::ContentType;
 use std::future;
 use std::io::Cursor;
+use std::collections::HashMap;
 use rocket::request::Request;
 use rocket::response::{self, Response, Responder, stream::TextStream};
 use rocket_db_pools::{Database, Connection};
 use rocket_db_pools::sqlx::{self, Row};
-use std::collections::HashMap;
 use rayon::prelude::*;
 use uuid::Uuid;
 use adjustp::{adjust, Procedure};
@@ -42,7 +42,7 @@ struct Bitmap<B: Integer + Copy + Into<usize>> {
     columns_str: Vec<String>,
     values: Vec<(Uuid, SparseBitVec<B>)>,
     // TODO: should we try to preserve gene list ordering in dump (?)
-    terms: HashMap<Uuid, Vec<(Uuid, String, String, bool)>>,
+    terms: HashMap<Uuid, Vec<(Uuid, String, String, bool, i32, String)>>,
 }
 
 impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
@@ -89,20 +89,36 @@ struct QueryResult {
     adj_pvalue: f64,
 }
 
+#[derive(Serialize, Debug)]
+struct DrugConsensusResult {
+    drug: String,
+    count_significant: usize,
+    count_insignificant: usize,
+    approved: bool,
+    odds_ratio: f64,
+    pvalue: f64,
+    adj_pvalue: f64,
+}
+
 struct QueryResponse {
     results: Vec<QueryResult>,
-    content_range: (usize, usize, usize),
+    consensus: Vec<DrugConsensusResult>,
+    content_range: (usize, usize, usize, usize),
 }
 
 #[rocket::async_trait]
 impl<'r> Responder<'r, 'static> for QueryResponse {
     fn respond_to(self, _: &'r Request<'_>) -> response::Result<'static> {
-        let json = rocket::serde::json::serde_json::to_string(&self.results).unwrap();
+        let json = rocket::serde::json::serde_json::json!({
+            "results": &self.results,
+            "consensus": &self.consensus
+        });
+        let json_str = rocket::serde::json::serde_json::to_string(&json).unwrap();
         Response::build()
             .header(ContentType::JSON)
             .raw_header("Range-Unit", "items")
-            .raw_header("Content-Range", format!("{}-{}/{}", self.content_range.0, self.content_range.1, self.content_range.2))
-            .sized_body(json.len(), Cursor::new(json))
+            .raw_header("Content-Range", format!("{}-{}/{}/{}", self.content_range.0, self.content_range.1, self.content_range.2, self.content_range.3))
+            .sized_body(json_str.len(), Cursor::new(json_str))
             .ok()
     }
 }
@@ -140,7 +156,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
         }
 
         // compute the index in memory
-        sqlx::query("select gs.id, gs.term, coalesce(gs.description, '') as description, gs.hash, gs.gene_ids, fda.approved as fda_approved from  app_public_v2.gene_set gs left join app_public_v2.gene_set_fda_counts fda on gs.id = fda.id;")
+        sqlx::query("select gs.id, gs.term, coalesce(gs.description, '') as description, gs.hash, gs.gene_ids, fda.approved as fda_approved, fda.count as count, fda.perturbation as pert from  app_public_v2.gene_set gs left join app_public_v2.gene_set_fda_counts fda on gs.id = fda.id;")
             .fetch(&mut **db)
             .for_each(|row| {
                 let row = row.unwrap();
@@ -149,6 +165,8 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                 let description: String = row.try_get("description").unwrap();
                 let gene_set_hash: Result<uuid::Uuid, _> = row.try_get("hash");
                 let fda_approved: bool = row.try_get::<bool, &str>("fda_approved").unwrap_or(false);
+                let count: i32 = row.try_get("count").unwrap_or(0);
+                let pert: String = row.try_get("pert").unwrap_or("").to_string();
                 if let Ok(gene_set_hash) = gene_set_hash {
                     if !bitmap.terms.contains_key(&gene_set_hash) {
                         let gene_ids: sqlx::types::Json<HashMap<String, sqlx::types::JsonValue>> = row.try_get("gene_ids").unwrap();
@@ -156,7 +174,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                         let bitset = SparseBitVec::new(&bitmap.columns, &gene_ids);
                         bitmap.values.push((gene_set_hash, bitset));
                     }
-                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description, fda_approved));
+                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description, fda_approved, count, pert));
                 }
                 future::ready(())
             })
@@ -209,7 +227,7 @@ async fn get_gmt(
     Ok(TextStream! {
         for (gene_set_hash, gene_set) in bitmap.values.iter() {
             if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                for (_row_id, term, description, _fda_approved) in terms.iter() {
+                for (_row_id, term, description, _fda_approved, _count, _pert) in terms.iter() {
                     let mut line = String::new();
                     line.push_str(term);
                     line.push_str("\t");
@@ -333,6 +351,129 @@ async fn query(
             results
         }
     };
+
+    let mut drug_significance_counts: HashMap<String, (usize, usize, bool)> = HashMap::new();
+    let mut drug_counts: HashMap<String, (usize, bool)> = HashMap::new();
+
+    for result in &(*results) {
+        if let Some((gene_set_hash, _gene_set)) = bitmap.values.get(result.index) {
+            if let Some(terms) = bitmap.terms.get(gene_set_hash) {
+                // Iterate over the terms for the current gene set
+                for (_gene_set_id, _gene_set_term, _description, fda_approved, count, pert) in terms {
+                    // Ensure `pert` is not empty before proceeding
+                    if !pert.is_empty() {
+                        // Increment the count for significant results
+                        let entry = drug_significance_counts.entry(pert.clone()).or_insert((0, 0, false));
+                        entry.0 += 1; // Increment significant count
+    
+                        // Insert the drug's total count into `drug_counts` if it's not already present
+                        if !drug_counts.contains_key(pert) {
+                            // `count` is of type `i32`, so cast it to `usize`
+                            drug_counts.insert(pert.clone(), (*count as usize, *fda_approved));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+
+    for (pert, (count_significant, count_insignificant, approved)) in &mut drug_significance_counts {
+        if let Some(&(total_count, is_approved)) = drug_counts.get(pert) {
+            *count_insignificant = total_count - *count_significant;
+            *approved = is_approved;
+        }
+    }
+
+    let total_terms = bitmap.terms.values().len();
+
+    let n_significant_drugs = results.len();
+    let n_insignificant_drugs = total_terms - n_significant_drugs;
+
+    let mut fisher = state.fisher.write().await; // Acquire write lock to mutate the data
+    *fisher = FastFisher::with_capacity(total_terms * 2); 
+
+    let mut consensus_results: Vec<DrugConsensusResult> = drug_significance_counts
+        .par_iter() // Use Rayon parallel iterator
+        .map(|(drug, (count_sig, count_insig, approved))| {
+            // Construct the 2x2 contingency table
+            let a = *count_sig; // Drug appears in significant results
+            let b = *count_insig; // Drug appears in insignificant results
+            let c = n_significant_drugs - *count_sig; // Drug does not appear in significant results
+            let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
+            if a < 1 {
+                println!("Skipping Fisher calculation due to bounds. Values: a={}, b={}, c={}, d={}", a, b, c, d);
+                return DrugConsensusResult {
+                    drug: drug.clone(),
+                    count_significant: *count_sig,
+                    count_insignificant: *count_insig,
+                    approved: *approved,
+                    odds_ratio: 0.0,
+                    pvalue: 1.0,
+                    adj_pvalue: 1.0,
+                };
+            }
+            let odds_ratio = ((a as f64) / ((b + a) as f64)) / (((c + a) as f64) / (total_terms as f64));
+            
+            let p_value = fisher.get_p_value(a as usize, b as usize, c as usize, d as usize); // Calculate p-value using FastFisher, b, c, d)
+            // Store the result with Fisher's Exact Test p-value
+            if p_value.is_nan() || p_value.is_infinite()  || p_value < 0.0 {
+                println!("Skipping Fisher calculation due to bounds. Values: a={}, b={}, c={}, d={}", a, b, c, d);
+                return DrugConsensusResult {
+                    drug: drug.clone(),
+                    count_significant: *count_sig,
+                    count_insignificant: *count_insig,
+                    approved: *approved,
+                    odds_ratio: 0.0,
+                    pvalue: 1.0,
+                    adj_pvalue: 1.0,
+                };
+            }
+            DrugConsensusResult {
+                drug: drug.clone(),
+                count_significant: *count_sig,
+                count_insignificant: *count_insig,
+                approved: *approved,
+                odds_ratio: odds_ratio,
+                pvalue: p_value,
+                adj_pvalue: 1.0, // Placeholder for now
+            }
+        })
+    .collect(); // Collect the results into a vector
+
+    let mut pvalues = vec![1.0; consensus_results.len()]; // Initialize the pvalues vector to match the length of consensus_results
+
+    // Populate pvalues with pvalues from consensus_results
+    consensus_results.iter().enumerate().for_each(|(i, res)| {
+        pvalues[i] = res.pvalue;
+    });
+
+    // Adjust p-values using Benjamini-Hochberg procedure
+    let adj_pvalues = adjust(&pvalues, Procedure::BenjaminiHochberg);
+
+    // Apply adjusted p-values to consensus_results
+    for (i, res) in consensus_results.iter_mut().enumerate() {
+        res.adj_pvalue = adj_pvalues[i];
+    }
+
+    if let Some(filter_fda) = filter_fda {
+        if filter_fda {
+            consensus_results.retain(|result| result.approved);
+        }
+    }
+
+    if let Some(filter_term) = &filter_term {
+        let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
+        consensus_results.retain(|result| result.drug.contains(&filter_term_clean));
+    }
+    
+    // Sort results by adjusted p-value
+    consensus_results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
+
+    let consensus_len = consensus_results.len();
+
+    println!("Consensus results computed for {} perturbations", consensus_len);
+
     let mut results: Vec<_> = results
         .iter()
         .filter_map(|result| {
@@ -342,13 +483,13 @@ async fn query(
                 let is_down = filter_term.contains(" down");
                 let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
                 if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                    if is_up && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)|  gene_set_term.to_lowercase().contains(" up")) {
+                    if is_up && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved, _count, _pert)|  gene_set_term.to_lowercase().contains(" up")) {
                         return None
                     }
-                    else if is_down && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)|  gene_set_term.to_lowercase().contains(" down")) {
+                    else if is_down && !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved, _count, _pert)|  gene_set_term.to_lowercase().contains(" down")) {
                         return None
                     }
-                    else if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved)| gene_set_term.to_lowercase().contains(&filter_term_clean)) {
+                    else if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved, _count, _pert)| gene_set_term.to_lowercase().contains(&filter_term_clean)) {
                         return None
                     }
                 }
@@ -356,7 +497,7 @@ async fn query(
             if let Some(filter_fda) = filter_fda {
                 if filter_fda {
                     if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, fda_approved)| !*fda_approved) {
+                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, fda_approved, _count, _pert)| !*fda_approved) {
                             return None
                         }
                     }
@@ -371,6 +512,7 @@ async fn query(
             })
         })
         .collect();
+    
     let range_total = results.len();
     let (range_start, range_end) = match (offset.unwrap_or(0), limit) {
         (0, None) => (0, range_total),
@@ -390,9 +532,30 @@ async fn query(
             (offset, offset + results.len())
         },
     };
+
+    let (_consensus_range_start, _consensus_range_end) = match (offset.unwrap_or(0), limit) {
+        (0, None) => (0, consensus_results.len()),
+        (offset, None) => {
+            if offset < consensus_results.len() {
+                consensus_results.drain(..offset);
+            };
+            (offset, consensus_results.len())
+        },
+        (offset, Some(limit)) => {
+            if offset < consensus_results.len() {
+                consensus_results.drain(..offset);
+                if limit < consensus_results.len() {
+                    consensus_results.drain(limit..);
+                }
+            };
+            (offset, offset + consensus_results.len())
+        },
+    };
+    
     Ok(QueryResponse {
         results,
-        content_range: (range_start, range_end, range_total),
+        consensus: consensus_results,
+        content_range: (range_start, range_end, range_total, consensus_len),
     })
 }
 
