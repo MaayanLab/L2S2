@@ -75,7 +75,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show All Drugs' : 'Show FDA Approved Drugs'}</button>
           <button className='button btn btn-sm float-left mr-4' onClick={() => {
           if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show Individual Signatures' : 'Show Consensus Perturbations'}</button>
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir })}}>{queryString.consensus === 'true' ? 'Show Individual Signatures' : 'Show Consensus Perturbations'}</button>
          {consensus ? <></> : <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
           <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
             "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
