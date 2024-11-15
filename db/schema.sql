@@ -110,6 +110,8 @@ CREATE TYPE app_public_v2.consensus_result AS (
 	drug character varying,
 	count_significant integer,
 	count_insignificant integer,
+	ratio_up_sig double precision,
+	ratio_down_sig double precision,
 	approved boolean,
 	odds_ratio double precision,
 	pvalue double precision,
@@ -200,10 +202,10 @@ CREATE TABLE app_public_v2.background (
 
 
 --
--- Name: indexed_enrich(app_public_v2.background, uuid[], character varying, integer, double precision, double precision, integer, integer, boolean); Type: FUNCTION; Schema: app_private_v2; Owner: -
+-- Name: indexed_enrich(app_public_v2.background, uuid[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying); Type: FUNCTION; Schema: app_private_v2; Owner: -
 --
 
-CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.background, gene_ids uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.background, gene_ids uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying) RETURNS app_public_v2.paginated_enrich_result
     LANGUAGE plpython3u IMMUTABLE PARALLEL SAFE
     AS $$
   import os, requests
@@ -216,6 +218,7 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first
+  if sortby: params['sortby'] = sortby
   req = requests.post(
     f"{os.environ.get('ENRICH_URL', 'http://l2s2-enrich:8000')}/{background['id']}",
     params=params,
@@ -710,10 +713,10 @@ $$;
 
 
 --
--- Name: background_enrich(app_public_v2.background, character varying[], character varying, integer, double precision, double precision, integer, integer, boolean); Type: FUNCTION; Schema: app_public_v2; Owner: -
+-- Name: background_enrich(app_public_v2.background, character varying[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying); Type: FUNCTION; Schema: app_public_v2; Owner: -
 --
 
-CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.background, genes character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.background, genes character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying) RETURNS app_public_v2.paginated_enrich_result
     LANGUAGE sql IMMUTABLE SECURITY DEFINER PARALLEL SAFE
     AS $$
   select r.*
@@ -726,7 +729,8 @@ CREATE FUNCTION app_public_v2.background_enrich(background app_public_v2.backgro
     background_enrich.adj_pvalue_le,
     background_enrich."offset",
     background_enrich."first",
-    background_enrich.filter_fda
+    background_enrich.filter_fda,
+    background_enrich.sortby
   ) r;
 $$;
 

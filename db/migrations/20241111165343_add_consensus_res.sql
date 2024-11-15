@@ -6,6 +6,8 @@ create type app_public_v2.consensus_result as (
     drug varchar,  
     count_significant int,
     count_insignificant int,
+    ratio_up_sig double precision,
+    ratio_down_sig double precision,
     approved boolean,
     odds_ratio double precision,
     pvalue double precision,
@@ -28,7 +30,8 @@ create or replace function app_private_v2.indexed_enrich(
   adj_pvalue_le double precision default 0.05,
   "offset" int default null,
   "first" int default null,
-  filter_fda boolean default false
+  filter_fda boolean default false,
+  sortby varchar default null
 ) returns app_public_v2.paginated_enrich_result as $$
   import os, requests
   params = dict(
@@ -40,6 +43,7 @@ create or replace function app_private_v2.indexed_enrich(
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first
+  if sortby: params['sortby'] = sortby
   req = requests.post(
     f"{os.environ.get('ENRICH_URL', 'http://l2s2-enrich:8000')}/{background['id']}",
     params=params,
@@ -60,7 +64,8 @@ create or replace function app_public_v2.background_enrich(
   adj_pvalue_le double precision default 0.05,
   "offset" int default null,
   "first" int default null,
-  filter_fda boolean default false
+  filter_fda boolean default false,
+  sortby varchar default null
 ) returns app_public_v2.paginated_enrich_result
 as $$
   select r.*
@@ -73,7 +78,8 @@ as $$
     background_enrich.adj_pvalue_le,
     background_enrich."offset",
     background_enrich."first",
-    background_enrich.filter_fda
+    background_enrich.filter_fda,
+    background_enrich.sortby
   ) r;
 $$ language sql immutable parallel safe security definer;
 grant execute on function app_public_v2.background_enrich to guest, authenticated;

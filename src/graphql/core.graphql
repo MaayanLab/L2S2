@@ -20,7 +20,7 @@ query FetchUserGeneSet($id: UUID!) {
   }
 }
 
-query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false) {
+query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "") {
   currentBackground {
     enrich(
       genes: $genes
@@ -28,6 +28,7 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
       offset: $offset
       first: $first
       filterFda: $filterFda
+      sortby: $sortBy
     ) {
       nodes {
         geneSetHash
@@ -58,6 +59,8 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
         approved
         countSignificant
         countInsignificant
+        ratioDownSig
+        ratioUpSig
         drug
         oddsRatio
         pvalue
