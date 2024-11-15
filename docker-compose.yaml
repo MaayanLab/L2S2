@@ -3,7 +3,7 @@ services:
   l2s2-app:
     build: .
     platform: linux/amd64
-    image: maayanlab/l2s2:0.0.6
+    image: maayanlab/l2s2:0.0.8
     x-kubernetes:
       imagePullPolicy: IfNotPresent
       annotations:
@@ -20,7 +20,11 @@ services:
   l2s2-enrich:
     build: enrich
     platform: linux/amd64
-    image: maayanlab/l2s2-enrich:0.0.6
+    image: maayanlab/l2s2-enrich:0.0.8
+    deploy:
+      resources:
+        reservations:
+          memory: 5Gb
     environment:
       - 'ROCKET_DATABASES={postgres={url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@l2s2-postgres/${POSTGRES_DB}"}}'
     ports:
@@ -29,11 +33,6 @@ services:
     build: db
     platform: linux/amd64
     image: maayanlab/l2s2-postgres:0.0.1
-    deploy:
-      resources:
-        reservations:
-          cpus: '2.0'
-          memory: 512M
     shm_size: 1Gb
     environment:
       - POSTGRES_DB
