@@ -94,8 +94,13 @@ struct DrugConsensusResult {
     drug: String,
     count_significant: usize,
     count_insignificant: usize,
-    ratio_up_sig: f64,
-    ratio_down_sig: f64,
+    count_up_significant: usize,
+    pvalue_up: f64,
+    adj_pvalue_up: f64,
+    odds_ratio_up: f64,
+    pvalue_down: f64,
+    adj_pvalue_down: f64,
+    odds_ratio_down: f64,
     approved: bool,
     odds_ratio: f64,
     pvalue: f64,
@@ -271,7 +276,7 @@ async fn delete(
 // query a specific background_id, providing the bitset vector as input
 //  the result are the gene_set_ids & relevant metrics
 // this can be pretty fast since the index is saved in memory and the overlaps can be computed in parallel
-#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>", data = "<input_gene_set>")]
+#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>", data = "<input_gene_set>")]
 async fn query(
     mut db: Connection<Postgres>,
     state: &State<PersistentState>,
@@ -285,6 +290,7 @@ async fn query(
     limit: Option<usize>,
     filter_fda: Option<bool>,
     sortby: Option<String>,
+    filter_ko: Option<bool>,
 ) -> Result<QueryResponse, Custom<String>> {
     let background_id = {
         if background_id == "latest" {
@@ -408,34 +414,37 @@ async fn query(
             let b = *count_insig; // Drug appears in insignificant results
             let c = n_significant_drugs - *count_sig; // Drug does not appear in significant results
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
-            let total_terms_by_dir = (*count_sig + *count_insig) as f64 / 2.0;
-            let ratio_sig_up = *sig_up as f64 / total_terms_by_dir as f64;
-            let ratio_sig_down = (*count_sig - *sig_up) as f64 / total_terms_by_dir as f64;
+            let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if a < 1 {
-                return DrugConsensusResult {
-                    drug: drug.clone(),
-                    count_significant: *count_sig,
-                    count_insignificant: *count_insig,
-                    ratio_up_sig: ratio_sig_up,
-                    ratio_down_sig: ratio_sig_down,
-                    approved: *approved,
-                    odds_ratio: 0.0,
-                    pvalue: 1.0,
-                    adj_pvalue: 1.0, // Placeholder for now
-                }
-            }
             let odds_ratio = ((a as f64) / ((b + a) as f64)) / (((c + a) as f64) / (total_terms as f64));
             
             let p_value = fisher.get_p_value(a as usize, b as usize, c as usize, d as usize); // Calculate p-value using FastFisher, b, c, d)
             // Store the result with Fisher's Exact Test p-value
-            if p_value.is_nan() || p_value.is_infinite()  || p_value < 0.0 || p_value > pvalue_le {
+
+            // Construct the second 2x2 table for directionality analysis
+            let a_up = *sig_up; // Upregulated and significant
+            let b_up = a - *sig_up; // Downregulated and significant
+            let a_down = total_terms_by_dir as usize - *sig_up; // Upregulated and insignificant
+            let b_down = *count_insig - a_down; // Downregulated and insignificant
+
+            let odds_ratio_up = ((a_up as f64 + 0.5) / (b_up as f64 + 0.5)) / ((a_down as f64 + 0.5) / (b_down as f64 + 0.5));
+            let odds_ratio_down = ((a_down as f64 + 0.5) / (b_down as f64 + 0.5)) / ((b_up as f64 + 0.5) / (a_up as f64 + 0.5));
+
+            let p_value_up = fisher.get_p_value(a_up as usize, b_up as usize, a_down as usize, b_down as usize);
+            let p_value_down = fisher.get_p_value(a_down as usize, b_down as usize, b_up as usize, a_up as usize);
+
+            if p_value.is_nan() || p_value.is_infinite() || p_value_up.is_nan() || p_value_up.is_infinite() || p_value_down.is_nan() || p_value_down.is_infinite() {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
                     count_insignificant: *count_insig,
-                    ratio_up_sig: ratio_sig_up,
-                    ratio_down_sig: ratio_sig_down,
+                    count_up_significant: *sig_up,
+                    pvalue_up: 1.0,
+                    adj_pvalue_up: 1.0,
+                    odds_ratio_up: 0.0,
+                    pvalue_down: 1.0,
+                    adj_pvalue_down: 1.0,
+                    odds_ratio_down: 0.0,
                     approved: *approved,
                     odds_ratio: 0.0,
                     pvalue: 1.0,
@@ -447,8 +456,13 @@ async fn query(
                 drug: drug.clone(),
                 count_significant: *count_sig,
                 count_insignificant: *count_insig,
-                ratio_up_sig: ratio_sig_up,
-                ratio_down_sig: ratio_sig_down,
+                count_up_significant: *sig_up,
+                pvalue_up: p_value_up,
+                adj_pvalue_up: 1.0,
+                odds_ratio_up: odds_ratio_up,
+                pvalue_down: p_value_down,
+                adj_pvalue_down: 1.0,
+                odds_ratio_down: odds_ratio_down,
                 approved: *approved,
                 odds_ratio: odds_ratio,
                 pvalue: p_value,
@@ -459,17 +473,27 @@ async fn query(
 
     let mut pvalues = vec![1.0; consensus_results.len()]; // Initialize the pvalues vector to match the length of consensus_results
 
+    let mut pvalues_up = vec![1.0; consensus_results.len()];
+
+    let mut pvalues_down = vec![1.0; consensus_results.len()];
     // Populate pvalues with pvalues from consensus_results
     consensus_results.iter().enumerate().for_each(|(i, res)| {
         pvalues[i] = res.pvalue;
+        pvalues_up[i] = res.pvalue_up;
+        pvalues_down[i] = res.pvalue_down;
     });
 
     // Adjust p-values using Benjamini-Hochberg procedure
     let adj_pvalues = adjust(&pvalues, Procedure::BenjaminiHochberg);
+    let adj_pvalues_up = adjust(&pvalues_up, Procedure::BenjaminiHochberg);
+    let adj_pvalues_down = adjust(&pvalues_down, Procedure::BenjaminiHochberg);
+
 
     // Apply adjusted p-values to consensus_results
     for (i, res) in consensus_results.iter_mut().enumerate() {
         res.adj_pvalue = adj_pvalues[i];
+        res.adj_pvalue_up = adj_pvalues_up[i];
+        res.adj_pvalue_down = adj_pvalues_down[i];
     }
 
     consensus_results.retain(|res| res.pvalue < pvalue_le);
@@ -483,6 +507,12 @@ async fn query(
     if let Some(filter_term) = &filter_term {
         let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
         consensus_results.retain(|result| result.drug.contains(&filter_term_clean));
+    }
+
+    if let Some(filter_ko) = filter_ko {
+        if filter_ko {
+            consensus_results.retain(|result| result.drug.contains(" "));
+        }
     }
     
     // Sort results by adjusted p-value
@@ -521,6 +551,16 @@ async fn query(
                     }
                 }
             }
+            if let Some(filter_ko) = filter_ko {
+                if filter_ko {
+                    if let Some(terms) = bitmap.terms.get(gene_set_hash) {
+                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, _fda_approved, count, pert)| !pert.contains(" ") ) {
+                            return None
+                        }
+                    }
+                }
+            }
+
             Some(QueryResult {
                 gene_set_hash: gene_set_hash.to_string(),
                 n_overlap: result.n_overlap,
@@ -537,19 +577,21 @@ async fn query(
                 consensus_results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
                 results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
             },
-            "adj_pvalue" => {
-                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue.partial_cmp(&b.adj_pvalue).unwrap_or(std::cmp::Ordering::Equal));
-                results.sort_unstable_by(|a, b| a.adj_pvalue.partial_cmp(&b.adj_pvalue).unwrap_or(std::cmp::Ordering::Equal));
-            },
             "odds_ratio" => {
                 consensus_results.sort_unstable_by(|a, b| b.odds_ratio.partial_cmp(&a.odds_ratio).unwrap_or(std::cmp::Ordering::Equal));
                 results.sort_unstable_by(|a, b| b.odds_ratio.partial_cmp(&a.odds_ratio).unwrap_or(std::cmp::Ordering::Equal));
             },
-            "ratio_up_sig" => {
-                consensus_results.sort_unstable_by(|a, b| b.ratio_up_sig.partial_cmp(&a.ratio_up_sig).unwrap_or(std::cmp::Ordering::Equal));
+            "odds_ratio_up" => {
+                consensus_results.sort_unstable_by(|a, b| b.odds_ratio_up.partial_cmp(&a.odds_ratio_up).unwrap_or(std::cmp::Ordering::Equal));
             },
-            "ratio_sig_down" => {
-                consensus_results.sort_unstable_by(|a, b| b.ratio_down_sig.partial_cmp(&a.ratio_down_sig).unwrap_or(std::cmp::Ordering::Equal));
+            "odds_ratio_down" => {
+                consensus_results.sort_unstable_by(|a, b| b.odds_ratio_up.partial_cmp(&a.odds_ratio_down).unwrap_or(std::cmp::Ordering::Equal));
+            },
+            "pvalue_up" => {
+                consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+            },
+            "pvalue_down" => {
+                consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
             },
             "overlap" => {
                 results.sort_unstable_by(|a, b| b.n_overlap.partial_cmp(&a.n_overlap).unwrap_or(std::cmp::Ordering::Equal));

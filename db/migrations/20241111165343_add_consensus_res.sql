@@ -6,8 +6,13 @@ create type app_public_v2.consensus_result as (
     drug varchar,  
     count_significant int,
     count_insignificant int,
-    ratio_up_sig double precision,
-    ratio_down_sig double precision,
+    count_up_significant int,
+    pvalue_up double precision,
+    adj_pvalue_up double precision,
+    odds_ratio_up double precision,
+    pvalue_down double precision,
+    adj_pvalue_down double precision,
+    odds_ratio_down double precision,
     approved boolean,
     odds_ratio double precision,
     pvalue double precision,
@@ -31,14 +36,16 @@ create or replace function app_private_v2.indexed_enrich(
   "offset" int default null,
   "first" int default null,
   filter_fda boolean default false,
-  sortby varchar default null
+  sortby varchar default null,
+  filter_ko boolean default false
 ) returns app_public_v2.paginated_enrich_result as $$
   import os, requests
   params = dict(
     overlap_ge=overlap_ge,
     pvalue_le=pvalue_le,
     adj_pvalue_le=adj_pvalue_le,
-    filter_fda=filter_fda
+    filter_fda=filter_fda,
+    filter_ko=filter_ko
   )
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
@@ -65,7 +72,8 @@ create or replace function app_public_v2.background_enrich(
   "offset" int default null,
   "first" int default null,
   filter_fda boolean default false,
-  sortby varchar default null
+  sortby varchar default null,
+  filter_ko boolean default false
 ) returns app_public_v2.paginated_enrich_result
 as $$
   select r.*
@@ -79,7 +87,8 @@ as $$
     background_enrich."offset",
     background_enrich."first",
     background_enrich.filter_fda,
-    background_enrich.sortby
+    background_enrich.sortby,
+    background_enrich.filter_ko
   ) r;
 $$ language sql immutable parallel safe security definer;
 grant execute on function app_public_v2.background_enrich to guest, authenticated;
