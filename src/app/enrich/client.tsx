@@ -97,21 +97,18 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           </button>
           
          {consensus ? <></> : <><div id="dir-select" className='join place-content-start place-items-center' >
-          <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer": 
-            "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
-              evt.preventDefault()
-              setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
-              }}>BOTH</div>
           <div className={queryString.dir == 'up' ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer": 
-            "join-item px-3 py-1.5  bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
+            "join-item px-3 py-1.5  bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
               evt.preventDefault()
-              setQueryString({ page: '1', q: rawTerm, dir: 'up', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+              if (queryString.dir === 'up') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+              else setQueryString({ page: '1', q: rawTerm, dir: 'up', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
             }
             }>UP</div>
           <div className={queryString.dir == 'down' ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer": 
-            "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
+            "join-item px-3 py-1.5 bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
               evt.preventDefault()
-              setQueryString({ page: '1', q: rawTerm, dir: 'down', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+              if (queryString.dir === 'down') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+              else setQueryString({ page: '1', q: rawTerm, dir: 'down', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
             }}>DOWN</div>
         </div>
         <button  onClick={() => setShowTerm(prev => !prev)}
