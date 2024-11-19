@@ -15,7 +15,7 @@ import useQsState from '@/utils/useQsState'
 import Stats from '../stats'
 import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
-import { FaSortUp } from "react-icons/fa6";
+import {FaSortUp } from "react-icons/fa6";
 
 const pageSize = 12
 
@@ -40,20 +40,21 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false' })
   const [rawTerm, setRawTerm] = React.useState('')
   const [showTerm, setShowTerm] = React.useState(false)
-  //const [fdaFilter, setFdaFilter] = React.useState(false)
-  const { page, term, fda, consensus, sort } = React.useMemo(() => ({ 
+
+  const { page, term, fda, consensus, sort, ko } = React.useMemo(() => ({ 
     page: queryString.page ? +queryString.page : 1, 
     term: queryString.q ?? '',
     fda: queryString.fda === 'true',
     consensus: queryString.consensus === 'true',
-    sort: queryString.sort
+    sort: queryString.sort,
+    ko: queryString.ko === 'true'
   }), [queryString]);
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
-    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda, sortBy: sort },
+    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda, sortBy: sort, filterKo: ko },
   })
 
   console.log(enrichmentResults)
@@ -74,12 +75,25 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
       </h2>
       <div className='row'>
         {consensus ? <></> : <button className='button btn btn-sm float-left' onClick={() => setShowTerm(prev => !prev)}>{showTerm ? 'Hide Full' : 'Show Full'} terms</button>}
+
         <button className='button btn btn-sm float-left mx-4' onClick={() => {
-          if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', dir: queryString.dir }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}>{queryString.fda === 'true' ? 'Show All Perturbations' : 'Show FDA Approved Drugs'}</button>
+          if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', dir: queryString.dir, ko: 'false' }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}>
+            {queryString.fda === 'true' ? 'Show All Perturbations' : 'Show FDA Approved Drugs'}
+          </button>
+         
           <button className='button btn btn-sm float-left mr-4' onClick={() => {
-          if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir,  })}}>{queryString.consensus === 'true' ? 'Show Individual Signatures' : 'Show Consensus Perturbations'}</button>
+          if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir, sort: 'pvalue' }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir,  })}}>
+            {queryString.consensus === 'true' ? 'Show Individual Signatures' : 'Show Consensus Perturbations'}
+          </button>
+          
+          <button className='button btn btn-sm float-left mr-4' onClick={() => {
+          if (queryString.ko === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'false', consensus: queryString.consensus, dir: queryString.dir, ko: 'true', sort: 'pvalue' }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: queryString.consensus, dir: queryString.dir, ko: 'false', sort: 'pvalue'  })}}>
+            {queryString.ko === 'true' ? 'Show All Perturbations' : 'Filter for CRISPR KOs'}
+          </button>
+         
          {consensus ? <></> : <div id="dir-select" className='join flex flex-row place-content-start place-items-center' >
           <div className={queryString.dir == '' ? "join-item px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 font-bold cursor-pointer": 
             "join-item px-3 py-1.5 bg-gray-100 cursor-pointer hover:font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
@@ -145,10 +159,15 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             <tr>
               <th className={showTerm ? '' : 'hidden'}>Term</th>
               <th>Perturbation</th>
-              <th>Significant Signatures</th>
-              <th>Insignificant Signatures</th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'ratio_up_sig' })}> Ratio Up Sig <FaSortUp /></span></th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'ratio_sig_down' })}>Ratio Down Sig <FaSortUp /></span></th>
+              <th>Direction</th>
+              <th>Sig Signatures</th>
+              <th>Insig Signatures</th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>PValue Up <FaSortUp /></span></th>
+              <th>AdjPValue Up</th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_up' })}>Odds Ratio Up <FaSortUp /></span></th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>PValue Down <FaSortUp /></span></th>
+              <th>AdjPValue Down</th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_down' })}>Odds Ratio Down <FaSortUp /></span></th>
               <th>FDA Approved</th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds Ratio <FaSortUp /></span></th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>PValue <FaSortUp /></span></th>
@@ -162,17 +181,42 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               </tr>
             : null}
             {enrichmentResults?.currentBackground?.enrich?.consensus?.flatMap((enrichmentResult, genesetIndex) => {
+              var perturbation = enrichmentResult?.drug
+              if (perturbation?.includes(' ')) perturbation = perturbation + ' KO'
               return (
                 <tr key={genesetIndex}>
-                  <td>{enrichmentResult?.drug}
-                  <a className='underline cursor-pointer mx-2' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${enrichmentResult?.drug}`} target='_blank'>
-                  <Image className="inline-block rounded" src="/images/drug_vector_art.png" width={20} height={20} alt="PubChem"/>
-                  </a>
+                  <td>
+                    {!perturbation?.includes('KO') ? 
+                    <>
+                    {perturbation}
+                    <a className='underline cursor-pointer mx-2' href={`https://pubchem.ncbi.nlm.nih.gov/#query=${perturbation}`} target='_blank'>
+                    <Image className="inline-block rounded" src="/images/drug_vector_art.png" width={20} height={20} alt="PubChem"/>
+                    </a>
+                    </>
+                      :
+                      <>
+                      {perturbation}
+                      <a className='underline cursor-pointer mx-2' href={`https://maayanlab.cloud/Harmonizome/gene/${perturbation.replace(' KO', '')}`} target='_blank'>
+                        <Image className="inline-block rounded" src="/images/harmonizome_logo_30x26.png" width={20} height={20} alt="Harmonizome"/>
+                      </a>
+                      <a className='underline cursor-pointer' href={`https://maayanlab.cloud/prismexp/g/${perturbation.replace(' KO', '')}`} target='_blank'>
+                        <Image className="inline-block rounded" src="/images/prismexp.png" width={20} height={20} alt="PrismEXP"/>
+                      </a>
+                    </>}
                   </td>
-                  <td>{enrichmentResult?.countSignificant}</td>
+                  <td>{(enrichmentResult?.pvalueUp || 0) < (enrichmentResult?.pvalueDown || 0) ? 
+                    <Image className="inline-block rounded" src="/images/up.png" width={15} height={15} alt="Up"/>
+                    : 
+                    <Image className="inline-block rounded" src="/images/down.png" width={15} height={15} alt="Down"/>}
+                  </td>
+                  <td>{enrichmentResult?.countSignificant} ({enrichmentResult?.countUpSignificant} Up, {(enrichmentResult?.countSignificant || 0) - (enrichmentResult?.countUpSignificant || 0)} Down)</td>
                   <td>{enrichmentResult?.countInsignificant}</td>
-                  <td>{enrichmentResult?.ratioUpSig?.toPrecision(3)}</td>
-                  <td>{enrichmentResult?.ratioDownSig?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.pvalueUp?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.adjPvalueUp?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.oddsRatioUp?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.pvalueDown?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.adjPvalueDown?.toPrecision(3)}</td>
+                  <td>{enrichmentResult?.oddsRatioDown?.toPrecision(3)}</td>
                   <td>{enrichmentResult?.approved ? 'Yes' : 'No'}</td>
                   <td>{enrichmentResult?.oddsRatio?.toPrecision(3)}</td>
                   <td>{enrichmentResult?.pvalue?.toPrecision(3)}</td>
@@ -219,8 +263,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               const count = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].count
               const approved = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved
 
-              const direction = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
-              const concentration = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
+              const concentration = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
+              const  direction = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
               
               if (!enrichmentResult?.geneSets) return null
               return (
@@ -262,13 +306,16 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                   }>{cellLine}</a>
                 </td>
                 <td>
+                  
                   {timepoint}
                 </td>
                 <td>
-                  {direction}
+                  {concentration}
                 </td>
                 <td>
-                  {concentration}
+                  {direction}
+                  {direction == 'up' ? <Image className="inline-block rounded ml-5" src="/images/up.png" width={15} height={15} alt="Up"/> : 
+                   <Image className="inline-block rounded ml-1" src="/images/down.png" width={15} height={15} alt="Down"/>}
                 </td>
                 <td>
                   {count}
