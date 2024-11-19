@@ -2,7 +2,7 @@ from tqdm import tqdm
 from helper.cli import cli
 
 
-def import_count_fda_info(plpy):
+def update_count_fda_info(plpy):
     import json
     with open("data/counts_perts.json") as f:
         counts_perts = json.load(f)
@@ -32,10 +32,10 @@ def import_count_fda_info(plpy):
         
         
 @cli.command()
-def ingest_counts_fda():
+def update_counts_fda():
     from helper.plpy import plpy
     try:
-        import_count_fda_info(plpy)
+        update_count_fda_info(plpy)
     except:
         plpy.conn.rollback()
         raise
