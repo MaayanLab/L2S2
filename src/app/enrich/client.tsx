@@ -42,7 +42,6 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
   )
   const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false' })
   const [rawTerm, setRawTerm] = React.useState('')
-  const [showTerm, setShowTerm] = React.useState(false)
 
   const { page, term, fda, consensus, sort, ko } = React.useMemo(() => ({ 
     page: queryString.page ? +queryString.page : 1, 
@@ -111,11 +110,6 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               else setQueryString({ page: '1', q: rawTerm, dir: 'down', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
             }}>DOWN</div>
         </div>
-        <button  onClick={() => setShowTerm(prev => !prev)}
-        className={showTerm ? 'button btn btn-sm ml-4 bg-purple-400 hover:bg-purple-600' : 'button btn btn-sm ml-4'}>
-        Full Terms
-        </button>
-        
         </>}
         
         
@@ -210,10 +204,13 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                       </a>
                     </>}
                   </td>
-                  <td>{(enrichmentResult?.pvalueUp || 0) < (enrichmentResult?.pvalueDown || 0) ? 
-                    <Image className="inline-block rounded" src="/images/up.png" width={15} height={15} alt="Up"/>
-                    : 
-                    <Image className="inline-block rounded" src="/images/down.png" width={15} height={15} alt="Down"/>}
+                  <td>
+                    {(enrichmentResult?.pvalueUp || 0) < (enrichmentResult?.pvalueDown || 0) ? (
+                        <Image className="inline-block rounded" src="/images/up.png" width={15} height={15} alt="Up"/>) 
+                        : (enrichmentResult?.pvalueUp || 0) > (enrichmentResult?.pvalueDown || 0) ? (
+                        <Image className="inline-block rounded" src="/images/down.png" width={15} height={15} alt="Down"/>
+                      ) : (
+                        <Image className="inline-block rounded" src="/images/minus.png" width={15} height={15} alt="Equal"/>)}
                   </td>
                   <td>{enrichmentResult?.countSignificant} ({enrichmentResult?.countUpSignificant} Up, {(enrichmentResult?.countSignificant || 0) - (enrichmentResult?.countUpSignificant || 0)} Down)</td>
                   <td>{enrichmentResult?.countInsignificant}</td>
@@ -236,7 +233,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         <table className="table table-xs">
           <thead>
             <tr className="text-left align-text-bottom">
-              <th className={showTerm ? '' : 'hidden'}>Term</th>
+              <th className={'hidden'}>Term</th>
               <th>Perturbation</th>
               <th>Cell Line</th>
               <th>Time<br/>point</th>
@@ -275,7 +272,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               if (!enrichmentResult?.geneSets) return null
               return (
                 <tr key={genesetIndex} className='text-left'>
-                <td className={showTerm ? '' : 'hidden'}>{term}</td>
+                <td className={'hidden'}>{term}</td>
                 <td>
                   {!perturbation?.includes('KO') ? 
                   <>
