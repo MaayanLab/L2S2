@@ -416,8 +416,27 @@ async fn query(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            let odds_ratio = ((a as f64) / ((b + a) as f64)) / (((c + a) as f64) / (total_terms as f64));
-            
+            if a < 5 {
+                return DrugConsensusResult {
+                    drug: drug.clone(),
+                    count_significant: *count_sig,
+                    count_insignificant: *count_insig,
+                    count_up_significant: *sig_up,
+                    pvalue_up: 1.0,
+                    adj_pvalue_up: 1.0,
+                    odds_ratio_up: 0.0,
+                    pvalue_down: 1.0,
+                    adj_pvalue_down: 1.0,
+                    odds_ratio_down: 0.0,
+                    approved: *approved,
+                    odds_ratio: 0.0,
+                    pvalue: 1.0,
+                    adj_pvalue: 1.0, // Placeholder for now
+                }
+            }
+
+            let odds_ratio = ((a as f64 + 0.5)  * (d as f64 + 0.5)) / ((b as f64 + 0.5) * (c as f64 + 0.5));
+
             let p_value = fisher.get_p_value(a as usize, b as usize, c as usize, d as usize); // Calculate p-value using FastFisher, b, c, d)
             // Store the result with Fisher's Exact Test p-value
 
@@ -428,10 +447,11 @@ async fn query(
             let b_down = *count_insig - a_down; // Downregulated and insignificant
 
             let odds_ratio_up = ((a_up as f64 + 0.5) / (b_up as f64 + 0.5)) / ((a_down as f64 + 0.5) / (b_down as f64 + 0.5));
-            let odds_ratio_down = ((a_down as f64 + 0.5) / (b_down as f64 + 0.5)) / ((b_up as f64 + 0.5) / (a_up as f64 + 0.5));
+            let odds_ratio_down = ((b_up as f64 + 0.5) / (a_up as f64 + 0.5)) / ((b_down as f64 + 0.5) / (a_down as f64 + 0.5));
 
             let p_value_up = fisher.get_p_value(a_up as usize, b_up as usize, a_down as usize, b_down as usize);
-            let p_value_down = fisher.get_p_value(a_down as usize, b_down as usize, b_up as usize, a_up as usize);
+
+            let p_value_down = fisher.get_p_value(b_up as usize, a_up as usize, b_down as usize, a_down as usize);
 
             if p_value.is_nan() || p_value.is_infinite() || p_value_up.is_nan() || p_value_up.is_infinite() || p_value_down.is_nan() || p_value_down.is_infinite() {
                 return DrugConsensusResult {
@@ -593,7 +613,7 @@ async fn query(
                 consensus_results.sort_unstable_by(|a, b| b.odds_ratio_up.partial_cmp(&a.odds_ratio_up).unwrap_or(std::cmp::Ordering::Equal));
             },
             "odds_ratio_down" => {
-                consensus_results.sort_unstable_by(|a, b| b.odds_ratio_up.partial_cmp(&a.odds_ratio_down).unwrap_or(std::cmp::Ordering::Equal));
+                consensus_results.sort_unstable_by(|a, b| b.odds_ratio_down.partial_cmp(&a.odds_ratio_down).unwrap_or(std::cmp::Ordering::Equal));
             },
             "pvalue_up" => {
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
