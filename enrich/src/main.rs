@@ -505,8 +505,16 @@ async fn query(
     }
 
     if let Some(filter_term) = &filter_term {
+        let is_up = filter_term.contains(" up");
+        let is_down = filter_term.contains(" down");
         let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
         consensus_results.retain(|result| result.drug.contains(&filter_term_clean));
+
+        if is_up {
+            consensus_results.retain(|result| result.pvalue_up < result.pvalue_down);
+        } else if is_down {
+            consensus_results.retain(|result| result.pvalue_down < result.pvalue_up);
+        }
     }
 
     if let Some(filter_ko) = filter_ko {
