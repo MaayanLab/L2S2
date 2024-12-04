@@ -143,14 +143,6 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             }}
           >&#x232B;</button>
         </div>
-        {/* <a href={`/enrich/download?dataset=${queryString.dataset}&q=${queryString.q}&fda=${queryString.fda}&consensus=${queryString.consensus}&dir=${queryString.dir}&ko=${queryString.ko}&sort=${queryString.sort}`} download={`${queryString.dataset}.tsv`}>
-          <div className="tooltip" data-tip="Download results">
-            <button
-              type="button"
-              className="btn join-item font-bold text-2xl pb-1"
-            >&#x21E9;</button>
-          </div>
-        </a> */}
         <DownloadButton queryString={queryString}></DownloadButton>
       </form>
       </div>
@@ -171,7 +163,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               <th>Insig<br/>Signatures</th>
               <th className='relative group'>
                 <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                  A Fisher's exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
+                  A Fisher&apos;s exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
                 onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>
@@ -186,8 +178,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               </th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_up' })}>Odds<br/>Ratio<br/>Up <FaSortUp /></span></th>
               <th className='relative group'>
-                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                  A Fisher's exact test comparing the number of significant down signatures, and the number of significant up signatures,<br/> the number of insignificant down signatures, and the number of insignificant up signatures
+                <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  A Fisher&apos;s exact test comparing the number of significant down signatures, and the number of significant up signatures,<br/> the number of insignificant down signatures, and the number of insignificant up signatures
                 </div>
                 <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>
                 PValue<br/>Down <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
@@ -204,7 +196,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
               <th className='relative group'>
                 <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                  A Fisher's exact test comparing the number of significant signatures and insignificant signatures for the given perturbation,<br/> as well as the total number of significant and insignificant signatures
+                  A Fisher&apos;s exact test comparing the number of significant signatures and insignificant signatures for the given perturbation,<br/> as well as the total number of significant and insignificant signatures
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
                 onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
@@ -306,7 +298,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
               <th className="relative group">
                 <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                  P-value computed using the Fisher's Exact Test
+                  P-value computed using the Fisher&apos;s Exact Test
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
                 onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
