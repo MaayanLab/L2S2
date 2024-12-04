@@ -16,6 +16,7 @@ import Stats from '../stats'
 import Image from 'next/image'
 import GeneSetModal from '@/components/geneSetModal'
 import {FaSortUp } from "react-icons/fa6";
+import { IoMdInformationCircleOutline } from "react-icons/io";
 
 const pageSize = 12
 
@@ -114,7 +115,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         
       <form
         id="search-form"
-        className="join flex flex-row place-content-end place-items-center"
+        className="join flex flex-row place-content-end place-items-center overflow-visible"
         onSubmit={evt => {
           evt.preventDefault()
           setQueryString({ page: '1', q: rawTerm })
@@ -158,19 +159,62 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
           <thead>
             <tr className="text-left align-text-bottom">
               <th>Perturbation</th>
-              <th>Direction</th>
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Reflecting if there are more significant up or down signatures 
+                </div>
+                <span className='inline-flex'>Direction<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
               <th>Sig<br/>Signatures</th>
               <th>Insig<br/>Signatures</th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>PValue<br/>Up <FaSortUp /></span></th>
-              <th>AdjPValue<br/>Up</th>
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  A Fisher's exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
+                </div>
+                <span className="flex align-text-top cursor-pointer" 
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>
+                PValue<br/>Up <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
+                </span>
+              </th>
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Up p-values adjusted using the Benjamini-Hochberg method
+                </div>
+                AdjPValue<br/><span className='inline-flex'>Up<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_up' })}>Odds<br/>Ratio<br/>Up <FaSortUp /></span></th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>PValue<br/>Down <FaSortUp /></span></th>
-              <th>AdjPValue<br/>Down</th>
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  A Fisher's exact test comparing the number of significant down signatures, and the number of significant up signatures,<br/> the number of insignificant down signatures, and the number of insignificant up signatures
+                </div>
+                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>
+                PValue<br/>Down <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
+                </span>
+              </th>
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Down p-values adjusted using the Benjamini-Hochberg method
+                </div>
+                AdjPValue<br/><span className='inline-flex'>Down<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_down' })}>Odds<br/>Ratio<br/>Down <FaSortUp /></span></th>
               <th>FDA<br/>Approved</th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>PValue <FaSortUp /></span></th>
-              <th>AdjPValue</th>
+              <th className='relative group'>
+                <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  A Fisher's exact test comparing the number of significant signatures and insignificant signatures for the given perturbation,<br/> as well as the total number of significant and insignificant signatures
+                </div>
+                <span className="flex align-text-top cursor-pointer" 
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
+                PValue <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
+                </span>
+              </th>
+              <th className='relative group'>
+                <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  P-values adjusted using the Benjamini-Hochberg method
+                </div>
+                <span className='inline-flex'>AdjPValue<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -231,20 +275,48 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         </> : 
         <table className="table table-xs">
           <thead>
-            <tr className="text-left align-text-bottom">
+            <tr className="text-left align-text-bottom overflow-visible">
               <th className={'hidden'}>Term</th>
-              <th>Perturbation</th>
+              <th className="relative group">
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Preclinical compound, drug, or gene targeted by CRISPR KO
+                </div>
+                <span className='inline-flex'>Perturbation<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
               <th>Cell Line</th>
               <th>Time<br/>point</th>
               <th>Concentration</th>
               <th>Direction</th>
-              <th>Signature<br/>Count</th>
+              <th className="relative group">
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Number of signatures for this perturbation contained within the database
+                </div>
+                Signature<br></br><span className='inline-flex'>Count<IoMdInformationCircleOutline className='ml-0.5'/></span>
+                </th>
               <th>FDA<br/>Approved</th>
               <th>Gene<br/>Set<br/>Size</th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'overlap' })}>Overlap <FaSortUp /></span></th>
+              <th>
+                <span className="flex align-text-top cursor-pointer" 
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'overlap' })}>
+                Overlap <FaSortUp />
+                </span>
+              </th>
               <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>PValue <FaSortUp /></span></th>
-              <th>AdjPValue</th>
+              <th className="relative group">
+                <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  P-value computed using the Fisher's Exact Test
+                </div>
+                <span className="flex align-text-top cursor-pointer" 
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
+                  PValue <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
+                </span>
+              </th>
+              <th className="relative group">
+                <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  Adjusted P-value computed using the Benjamini-Hochberg procedure
+                </div>
+                <span className='inline-flex'>AdjPValue<IoMdInformationCircleOutline className='ml-0.5'/></span>
+              </th>
             </tr>
           </thead>
           <tbody>
