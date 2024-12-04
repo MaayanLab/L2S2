@@ -11,6 +11,7 @@ import {
 import ensureArray from "@/utils/ensureArray"
 import Loading from '@/components/loading'
 import Pagination from '@/components/pagination'
+import DownloadButton from '@/components/downloadButton'
 import useQsState from '@/utils/useQsState'
 import Stats from '../stats'
 import Image from 'next/image'
@@ -142,14 +143,15 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             }}
           >&#x232B;</button>
         </div>
-        <a href={`/enrich/download?dataset=${queryString.dataset}&q=${queryString.q}`} download="results.tsv">
+        {/* <a href={`/enrich/download?dataset=${queryString.dataset}&q=${queryString.q}&fda=${queryString.fda}&consensus=${queryString.consensus}&dir=${queryString.dir}&ko=${queryString.ko}&sort=${queryString.sort}`} download={`${queryString.dataset}.tsv`}>
           <div className="tooltip" data-tip="Download results">
             <button
               type="button"
               className="btn join-item font-bold text-2xl pb-1"
             >&#x21E9;</button>
           </div>
-        </a>
+        </a> */}
+        <DownloadButton queryString={queryString}></DownloadButton>
       </form>
       </div>
       <div className="overflow-x-auto">
