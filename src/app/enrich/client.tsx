@@ -146,7 +146,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         <DownloadButton queryString={queryString}></DownloadButton>
       </form>
       </div>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-scroll">
         {consensus ? 
         <>
         <table className="table table-xs">
@@ -161,9 +161,11 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               </th>
               <th>Sig<br/>Signatures</th>
               <th>Insig<br/>Signatures</th>
-              <th className='relative group'>
-                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                  A Fisher&apos;s exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
+              <th className='relative group overflow-x-visible'>
+                <div className="absolute z-10 overflow-visible left-0 top-10 mb-2 hidden bg-gray-700 text-white text-xs rounded p-1 opacity-0 group-hover:opacity-100">
+                  A Fisher&apos;s exact test comparing the number of significant up signatures, 
+                  and the number of significant down signatures, the number of insignificant up 
+                  signatures, and the number of insignificant down signatures
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
                 onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>
@@ -171,7 +173,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 </span>
               </th>
               <th className='relative group'>
-                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 opacity-0 group-hover:opacity-100">
                   Up p-values adjusted using the Benjamini-Hochberg method
                 </div>
                 AdjPValue<br/><span className='inline-flex'>Up<IoMdInformationCircleOutline className='ml-0.5'/></span>
@@ -328,8 +330,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               var perturbation = enrichmentResult?.geneSets.nodes[0].term.split('_')[4]
               if (perturbation?.split(' ').length == 2) perturbation = perturbation?.split(' ')[0] + ' KO'
 
-              const count = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].count
-              const approved = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved
+              const count = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.count || 1
+              const approved = enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.approved || false
 
               const concentration = enrichmentResult?.geneSets.nodes[0].term.split('_')[5]?.split(' ')[0] ?? 'N/A'
               const  direction = enrichmentResult?.geneSets.nodes[0].term.split(' ')[1]
