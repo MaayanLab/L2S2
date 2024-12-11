@@ -129,7 +129,7 @@ export async function GET(request: Request) {
             pvalue: node.pvalue,
             adjPvalue: node.adjPvalue,
             oddsRatio: node.oddsRatio,
-            count: node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].count,
+            count: node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.count || 1,
             approved:
               node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved?.toString() ||
               "",
