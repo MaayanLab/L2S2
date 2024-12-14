@@ -131,7 +131,7 @@ export async function GET(request: Request) {
             oddsRatio: node.oddsRatio,
             count: node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.count || 1,
             approved:
-              node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0].approved?.toString() ||
+              node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.approved?.toString() ||
               "",
             nOverlap: node.nOverlap,
           }))
