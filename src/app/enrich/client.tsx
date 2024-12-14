@@ -58,7 +58,6 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda, sortBy: sort, filterKo: ko },
   })
 
-  console.log(enrichmentResults)
 
   React.useEffect(() => {
     console.log(term)
@@ -161,19 +160,16 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               </th>
               <th>Sig<br/>Signatures</th>
               <th>Insig<br/>Signatures</th>
-              <th className='relative group overflow-x-visible'>
-                <div className="absolute z-10 overflow-visible left-0 top-10 mb-2 hidden bg-gray-700 text-white text-xs rounded p-1 opacity-0 group-hover:opacity-100">
-                  A Fisher&apos;s exact test comparing the number of significant up signatures, 
-                  and the number of significant down signatures, the number of insignificant up 
-                  signatures, and the number of insignificant down signatures
+              <th className='relative group'>
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
+                  A Fisher&apos;s exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
                 </div>
-                <span className="flex align-text-top cursor-pointer" 
-                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>
+                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>
                 PValue<br/>Up <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
                 </span>
               </th>
               <th className='relative group'>
-                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 opacity-0 group-hover:opacity-100">
+                <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                   Up p-values adjusted using the Benjamini-Hochberg method
                 </div>
                 AdjPValue<br/><span className='inline-flex'>Up<IoMdInformationCircleOutline className='ml-0.5'/></span>
