@@ -28,6 +28,11 @@ export default function Nav() {
           href="/about"
           className={classNames({ 'active': pathname === '/about' })}
           shallow>About</Link></li>
+      <li>
+        <Link
+          href="/help"
+          className={classNames({ 'active': pathname === '/help' })}
+          shallow>User Manual</Link></li>
     </>
   )
 }
