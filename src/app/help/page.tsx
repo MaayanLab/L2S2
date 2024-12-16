@@ -268,7 +268,7 @@ export default function UserManual() {
             <Link className="underline cursor-pointer" href="/graphiql" target="_blank">
               GraphQL endpoint
             </Link>{" "}
-            and asscoiated Postgres database provide users with a wide range of
+            and associated Postgres database provide users with a wide range of
             available queries and with a user interface to test and develop
             these queries:
           </p>
