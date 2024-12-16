@@ -365,7 +365,7 @@ async fn query(
     let mut drug_significance_counts: HashMap<String, (usize, usize, usize, bool)> = HashMap::new();
     let mut drug_counts: HashMap<String, (usize, bool)> = HashMap::new();
 
-    for result in &(*results) {
+    for result in (*results).iter().take(10000) {
         if let Some((gene_set_hash, _gene_set)) = bitmap.values.get(result.index) {
             if let Some(terms) = bitmap.terms.get(gene_set_hash) {
                 // Iterate over the terms for the current gene set
@@ -389,7 +389,6 @@ async fn query(
             }
         }
     }
-    
 
     for (pert, (count_significant, count_insignificant, _sig_up, approved)) in &mut drug_significance_counts {
         if let Some(&(total_count, is_approved)) = drug_counts.get(pert) {
