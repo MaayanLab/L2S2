@@ -42,7 +42,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false', topn: '10000', pvalueLe: '0.05' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false', topn: '1000', pvaluele: '0.05' })
   const [rawTerm, setRawTerm] = React.useState('')
 
   const { page, term, fda, consensus, sort, ko, topN, pvalueLe } = React.useMemo(() => ({ 
@@ -52,8 +52,8 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     consensus: queryString.consensus === 'true',
     sort: queryString.sort,
     ko: queryString.ko === 'true',
-    topN: parseInt(queryString?.topn ?? '10000'),
-    pvalueLe: parseFloat(queryString?.pvalueLe ?? '0.05'),
+    topN: parseInt(queryString?.topn ?? '1000'),
+    pvalueLe: parseFloat(queryString?.pvaluele ?? '0.05'),
   }), [queryString]);
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
@@ -72,28 +72,28 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         
         {!enrichmentResults?.currentBackground?.enrich ?
           <>Rummaging through <Stats show_gene_sets />.</>
-          : <>{ consensus ? <>After rummaging through <Stats show_gene_sets />. <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> computed significance for {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.consensusCount || 0)} consensus perturbations .</> : 
+          : <>{ consensus ? <>After rummaging through <Stats show_gene_sets />. <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> computed significance for {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.consensusCount || 0)} consensus perturbations.</> : 
             <>After rummaging through <Stats show_gene_sets />. <Image className="inline-block rounded" src="/images/LINCSearch_logo.png" width={50} height={100} alt="LINCSearch"></Image> found {Intl.NumberFormat("en-US", {}).format(enrichmentResults?.currentBackground?.enrich?.totalCount || 0)} statistically significant matches.</>}</>}
       </h2>
       <div className='flex-row'>
         
         <button onClick={() => {
-          if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', dir: queryString.dir, ko: 'false' }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir })}}
+          if (queryString.fda === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'true', consensus: queryString.consensus, dir: queryString.dir, ko: 'false', sort: queryString.sort, topn: queryString.topn, pvaluele: queryString.pvaluele }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: 'false', dir: queryString.dir, consensus: queryString.consensus, ko: queryString.ko, sort: queryString.sort, topn: queryString.topn, pvaluele: queryString.pvaluele })}}
           className={queryString.fda === 'true' ? 'button btn btn-sm float-left mx-4 bg-purple-400 hover:bg-purple-600': 'button btn btn-sm float-left mx-4'}>
              Approved
           </button>
          
           <button onClick={() => {
-          if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir, sort: 'pvalue_up' }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir,  })}}
+          if (queryString.consensus === 'false') setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'true', dir: queryString.dir, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: 'false', dir: queryString.dir, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}}
           className={queryString.consensus === 'true' ? 'button btn btn-sm float-left mr-4 bg-purple-400 hover:bg-purple-600' : 'button btn btn-sm float-left mr-4'} >
             Consensus
           </button>
           
           <button  onClick={() => {
-          if (queryString.ko === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'false', consensus: queryString.consensus, dir: queryString.dir, ko: 'true', sort: 'pvalue' }) 
-          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: queryString.consensus, dir: queryString.dir, ko: 'false', sort: 'pvalue'  })}}
+          if (queryString.ko === 'false') setQueryString({ page: '1', q: rawTerm, fda: 'false', consensus: queryString.consensus, dir: queryString.dir, ko: 'true', sort: queryString.sort, topn: queryString.topn, pvalueLe: queryString.pvalueLe }) 
+          else setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: queryString.consensus, dir: queryString.dir, ko: 'false', sort: queryString.sort, topn: queryString.topn, pvalueLe: queryString.pvalueLe })}}
           className={queryString.ko === 'true' ? 'button btn btn-sm float-left mr-4 bg-purple-400 hover:bg-purple-600' : 'button btn btn-sm float-left mr-4'}>
             CRISPR KOs
           </button>
@@ -102,15 +102,15 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             <div className={queryString.dir == 'up' ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer": 
               "join-item px-3 py-1.5  bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
                 evt.preventDefault()
-                if (queryString.dir === 'up') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
-                else setQueryString({ page: '1', q: rawTerm, dir: 'up', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+                if (queryString.dir === 'up') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })
+                else setQueryString({ page: '1', q: rawTerm, dir: 'up', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })
               }
               }>UP</div>
             <div className={queryString.dir == 'down' ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer": 
               "join-item px-3 py-1.5 bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"} onClick={(evt) => {
                 evt.preventDefault()
-                if (queryString.dir === 'down') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
-                else setQueryString({ page: '1', q: rawTerm, dir: 'down', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort })
+                if (queryString.dir === 'down') setQueryString({ page: '1', q: rawTerm, dir: '', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })
+                else setQueryString({ page: '1', q: rawTerm, dir: 'down', fda: queryString.fda, consensus: queryString.consensus, sort: queryString.sort, ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })
               }}>DOWN</div>
           </div>
         
@@ -120,7 +120,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
         className="join flex flex-row place-content-end place-items-center overflow-visible"
         onSubmit={evt => {
           evt.preventDefault()
-          setQueryString({ page: '1', q: rawTerm })
+          setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, consensus: queryString.consensus, dir: queryString.dir, ko: queryString.ko, sort: queryString.sort, topn: queryString.topn, pvaluele: queryString.pvaluele })
         }}
       >
         <input
@@ -140,7 +140,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             type="reset"
             className="btn join-item"
             onClick={evt => {
-              setQueryString({ page: '1', q: '' })
+              setQueryString({ page: '1', q: '', fda: queryString.fda, consensus: queryString.consensus, dir: queryString.dir, ko: queryString.ko, sort: queryString.sort, topn: queryString.topn, pvaluele: queryString.pvaluele })
             }}
           >&#x232B;</button>
         </div>
@@ -166,7 +166,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                   A Fisher&apos;s exact test comparing the number of significant up signatures, and the number of significant down signatures,<br/> the number of insignificant up signatures, and the number of insignificant down signatures
                 </div>
-                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up' })}>
+                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_up', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>
                 PValue<br/>Up <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
                 </span>
               </th>
@@ -176,12 +176,12 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 </div>
                 AdjPValue<br/><span className='inline-flex'>Up<IoMdInformationCircleOutline className='ml-0.5'/></span>
               </th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_up' })}>Odds<br/>Ratio<br/>Up <FaSortUp /></span></th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_up', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>Odds<br/>Ratio<br/>Up <FaSortUp /></span></th>
               <th className='relative group'>
                 <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                   A Fisher&apos;s exact test comparing the number of significant down signatures, and the number of significant up signatures,<br/> the number of insignificant down signatures, and the number of insignificant up signatures
                 </div>
-                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down' })}>
+                <span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue_down', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>
                 PValue<br/>Down <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
                 </span>
               </th>
@@ -191,15 +191,15 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
                 </div>
                 AdjPValue<br/><span className='inline-flex'>Down<IoMdInformationCircleOutline className='ml-0.5'/></span>
               </th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_down' })}>Odds<br/>Ratio<br/>Down <FaSortUp /></span></th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio_down', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>Odds<br/>Ratio<br/>Down <FaSortUp /></span></th>
               <th>FDA<br/>Approved</th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>Odds<br/>Ratio <FaSortUp /></span></th>
               <th className='relative group hidden'>
                 <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                   A Fisher&apos;s exact test comparing the number of significant signatures and insignificant signatures for the given perturbation,<br/> as well as the total number of significant and insignificant signatures
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
-                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele })}>
                 PValue <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
                 </span>
               </th>
@@ -291,17 +291,17 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
               <th>Gene<br/>Set<br/>Size</th>
               <th>
                 <span className="flex align-text-top cursor-pointer" 
-                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'overlap' })}>
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'overlap', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele, consensus: queryString.consensus })}>
                 Overlap <FaSortUp />
                 </span>
               </th>
-              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio' })}>Odds<br/>Ratio <FaSortUp /></span></th>
+              <th><span className="flex align-text-top cursor-pointer" onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'odds_ratio', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele, consensus: queryString.consensus })}>Odds<br/>Ratio <FaSortUp /></span></th>
               <th className="relative group">
                 <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                   P-value computed using the Fisher&apos;s Exact Test
                 </div>
                 <span className="flex align-text-top cursor-pointer" 
-                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue' })}>
+                onClick={() => setQueryString({ page: '1', q: rawTerm, fda: queryString.fda, dir: queryString.dir, sort: 'pvalue', ko: queryString.ko, topn: queryString.topn, pvaluele: queryString.pvaluele, consensus: queryString.consensus })}>
                   PValue <FaSortUp /><IoMdInformationCircleOutline className='ml-0.5'/>
                 </span>
               </th>
@@ -443,7 +443,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             totalCount={enrichmentResults?.currentBackground?.enrich?.consensusCount ? enrichmentResults?.currentBackground?.enrich.consensusCount : undefined}
             pageSize={pageSize}
             onChange={page => {
-              setQueryString({ page: `${page}`, q: term })
+              setQueryString({ page: `${page}`, q: term, consensus: queryString.consensus, ko: queryString.ko, dir: queryString.dir, topn: queryString.topn, pvaluele: queryString.pvaluele, fda: queryString.fda })
             }}
           />:
           <Pagination
@@ -451,7 +451,7 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
             totalCount={enrichmentResults?.currentBackground?.enrich?.totalCount ? enrichmentResults?.currentBackground?.enrich.totalCount : undefined}
             pageSize={pageSize}
             onChange={page => {
-              setQueryString({ page: `${page}`, q: term })
+              setQueryString({ page: `${page}`, q: term, consensus: queryString.consensus, ko: queryString.ko, dir: queryString.dir, topn: queryString.topn, pvaluele: queryString.pvaluele, fda: queryString.fda })
             }}
           />}
         </div>
