@@ -3,7 +3,7 @@ services:
   l2s2-app:
     build: .
     platform: linux/amd64
-    image: maayanlab/l2s2:0.1.15
+    image: maayanlab/l2s2:0.1.16-topn
     x-kubernetes:
       imagePullPolicy: IfNotPresent
       annotations:
@@ -20,7 +20,7 @@ services:
   l2s2-enrich:
     build: enrich
     platform: linux/amd64
-    image: maayanlab/l2s2-enrich:0.1.07
+    image: maayanlab/l2s2-enrich:0.1.15-topn
     deploy:
       resources:
         reservations:
