@@ -37,7 +37,8 @@ create or replace function app_private_v2.indexed_enrich(
   "first" int default null,
   filter_fda boolean default false,
   sortby varchar default null,
-  filter_ko boolean default false
+  filter_ko boolean default false,
+  top_n int default 10000
 ) returns app_public_v2.paginated_enrich_result as $$
   import os, requests
   params = dict(
@@ -73,7 +74,8 @@ create or replace function app_public_v2.background_enrich(
   "first" int default null,
   filter_fda boolean default false,
   sortby varchar default null,
-  filter_ko boolean default false
+  filter_ko boolean default false,
+  top_n int default 10000
 ) returns app_public_v2.paginated_enrich_result
 as $$
   select r.*
@@ -88,7 +90,8 @@ as $$
     background_enrich."first",
     background_enrich.filter_fda,
     background_enrich.sortby,
-    background_enrich.filter_ko
+    background_enrich.filter_ko,
+    background_enrich.top_n
   ) r;
 $$ language sql immutable parallel safe security definer;
 grant execute on function app_public_v2.background_enrich to guest, authenticated;

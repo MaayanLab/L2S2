@@ -42,20 +42,22 @@ function EnrichmentResults({ userGeneSet, setModalGeneSet }: { userGeneSet?: Fet
     ensureArray(userGeneSet?.userGeneSet?.genes).filter((gene): gene is string => !!gene).map(gene => gene.toUpperCase()),
     [userGeneSet]
   )
-  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false' })
+  const [queryString, setQueryString] = useQsState({ page:  '1', q: '', dir: '', fda: 'false', consensus: 'false', sort: 'pvalue', ko: 'false', topn: '10000', pvalueLe: '0.05' })
   const [rawTerm, setRawTerm] = React.useState('')
 
-  const { page, term, fda, consensus, sort, ko } = React.useMemo(() => ({ 
+  const { page, term, fda, consensus, sort, ko, topN, pvalueLe } = React.useMemo(() => ({ 
     page: queryString.page ? +queryString.page : 1, 
     term: queryString.q ?? '',
     fda: queryString.fda === 'true',
     consensus: queryString.consensus === 'true',
     sort: queryString.sort,
-    ko: queryString.ko === 'true'
+    ko: queryString.ko === 'true',
+    topN: parseInt(queryString?.topn ?? '10000'),
+    pvalueLe: parseFloat(queryString?.pvalueLe ?? '0.05'),
   }), [queryString]);
   const { data: enrichmentResults } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
-    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda, sortBy: sort, filterKo: ko },
+    variables: { genes, filterTerm: term + ' ' + queryString.dir, offset: (page-1)*pageSize, first: pageSize, filterFda: fda, sortBy: sort, filterKo: ko, topN: topN, pvalueLe: pvalueLe },
   })
 
 

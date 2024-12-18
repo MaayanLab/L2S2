@@ -276,7 +276,7 @@ async fn delete(
 // query a specific background_id, providing the bitset vector as input
 //  the result are the gene_set_ids & relevant metrics
 // this can be pretty fast since the index is saved in memory and the overlaps can be computed in parallel
-#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>", data = "<input_gene_set>")]
+#[post("/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>&<top_n>", data = "<input_gene_set>")]
 async fn query(
     mut db: Connection<Postgres>,
     state: &State<PersistentState>,
@@ -291,6 +291,7 @@ async fn query(
     filter_fda: Option<bool>,
     sortby: Option<String>,
     filter_ko: Option<bool>,
+    top_n: Option<usize>,
 ) -> Result<QueryResponse, Custom<String>> {
     let background_id = {
         if background_id == "latest" {
@@ -310,6 +311,7 @@ async fn query(
     let pvalue_le =  pvalue_le.unwrap_or(1.0);
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let sortby = sortby.and_then(|sortby| Some(sortby));
+    let top_n = top_n.unwrap_or(1000);
     let background_query = Arc::new(BackgroundQuery { background_id, input_gene_set });
     let results = {
         let results = state.cache.get(&background_query).await;
@@ -365,7 +367,7 @@ async fn query(
     let mut drug_significance_counts: HashMap<String, (usize, usize, usize, bool)> = HashMap::new();
     let mut drug_counts: HashMap<String, (usize, bool)> = HashMap::new();
 
-    for result in (*results).iter().take(1000) {
+    for result in (*results).iter().take(top_n) {
         if let Some((gene_set_hash, _gene_set)) = bitmap.values.get(result.index) {
             if let Some(terms) = bitmap.terms.get(gene_set_hash) {
                 // Iterate over the terms for the current gene set
@@ -581,7 +583,7 @@ async fn query(
             if let Some(filter_ko) = filter_ko {
                 if filter_ko {
                     if let Some(terms) = bitmap.terms.get(gene_set_hash) {
-                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, _fda_approved, count, pert)| !pert.contains(" ") ) {
+                        if terms.iter().any(|(_gene_set_id, _gene_set_term, _gene_set_description, _fda_approved, _count, pert)| !pert.contains(" ") ) {
                             return None
                         }
                     }

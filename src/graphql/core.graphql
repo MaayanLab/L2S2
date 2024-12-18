@@ -20,7 +20,7 @@ query FetchUserGeneSet($id: UUID!) {
   }
 }
 
-query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false) {
+query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
   currentBackground {
     enrich(
       genes: $genes
@@ -30,6 +30,8 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
       filterFda: $filterFda
       sortby: $sortBy
       filterKo: $filterKo
+      topN: $topN
+      pvalueLe: $pvalueLe
     ) {
       nodes {
         geneSetHash
