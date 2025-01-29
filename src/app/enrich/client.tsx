@@ -67,6 +67,7 @@ function EnrichmentResults({
   });
   const [rawTerm, setRawTerm] = React.useState("");
   const [topNSlider, setTopNSlider] = React.useState(1000);
+  const [pvalueLeSlider, setPvalueLeSlider] = React.useState(0.05);
 
   const { page, term, fda, consensus, sort, ko, topN, pvalueLe } =
     React.useMemo(
@@ -338,7 +339,7 @@ function EnrichmentResults({
           <label
             className="text-sm font-bold mr-3 tooltip inline-flex"
             htmlFor="default-range"
-            data-tip="Number of significant signatures to use when computing consensus scores (ranked by p-value)"
+            data-tip="Significant signatures to use when computing consensus scores (ranked by p-value)"
           >
             Top N Significant Sigs{" "}
             <IoMdInformationCircleOutline className="ml-0.5" />
@@ -349,14 +350,14 @@ function EnrichmentResults({
               type="range"
               value={topNSlider}
               onChange={(evt) => setTopNSlider(Number(evt.target.value))}
-              max={100000}
-              min={100}
-              step={100}
+              max={20000}
+              min={500}
+              step={500}
               className="w-52 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
             ></input>
           </div>
 
-          <div className="tooltip ml-2" data-tip="Filter results">
+          <div className="tooltip ml-2" data-tip="Apply Threshold">
             <button
               className="btn btn-sm bg-transparent p-2"
               onClick={() => {
@@ -376,7 +377,49 @@ function EnrichmentResults({
               <FaFilter />
             </button>
           </div>
-        </div> : <></>}
+        </div> : <div className="inline-flex items-center ml-5 transition-all accent-purple-500">
+          <label
+            className="text-sm font-bold mr-3 tooltip inline-flex"
+            htmlFor="default-range"
+            data-tip="Threshold for p-value for significance"
+          >
+            P-value Threshold{" "}
+            <IoMdInformationCircleOutline className="ml-0.5" />
+          </label>
+          <div className="tooltip" data-tip={pvalueLeSlider.toString()}>
+            <input
+              id="default-range"
+              type="range"
+              value={pvalueLeSlider}
+              onChange={(evt) => setPvalueLeSlider(Number(evt.target.value))}
+              max={0.05}
+              min={0.001}
+              step={0.001}
+              className="w-52 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+            ></input>
+          </div>
+
+          <div className="tooltip ml-2" data-tip="Apply Threshold">
+            <button
+              className="btn btn-sm bg-transparent p-2"
+              onClick={() => {
+                setQueryString({
+                  page: "1",
+                  q: rawTerm,
+                  dir: queryString.dir,
+                  fda: queryString.fda,
+                  consensus: queryString.consensus,
+                  sort: queryString.sort,
+                  ko: queryString.ko,
+                  topn: queryString.topn,
+                  pvaluele: pvalueLeSlider.toString(),
+                });
+              }}
+            >
+              <FaFilter />
+            </button>
+          </div>
+        </div>}
 
         <form
           id="search-form"
@@ -1018,10 +1061,13 @@ function EnrichmentResults({
                             });
 
                             const resJson = await res.json();
-                            window.open(
-                              `https://depmap.org${resJson[0].url}`,
-                              "_blank"
-                            );
+                            const suggestedCellLines = resJson.filter((entry: any) => entry.type == 'cell_line')
+                            if (suggestedCellLines.length > 0) {
+                              window.open(
+                                `https://depmap.org${suggestedCellLines[0].url}`,
+                                "_blank"
+                              );
+                            }
                           }}
                         >
                           {cellLine}

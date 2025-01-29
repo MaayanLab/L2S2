@@ -45,6 +45,7 @@ export default function InputForm() {
           const result = await addUserGeneSetMutation({
             variables: {
               genes,
+              description: 'Consensus Dexamethasone Up',
             }
           })
           const id = result.data?.addUserGeneSet?.userGeneSet?.id
