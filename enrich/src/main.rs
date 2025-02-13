@@ -53,7 +53,7 @@ struct Bitmap<B: Integer + Copy + Into<usize>> {
 }
 
 struct SignaturePairs {
-    pairs: Vec<(String, String)>, // Stores index pairs for "up" and "down" signatures
+    pairs: Vec<(usize, usize)>, // Stores index pairs for "up" and "down" signatures
 }
 
 impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
@@ -1124,11 +1124,17 @@ async fn query_pairs(
             let (gene_set_hash, _gene_set) = bitmap.values.get(result.index_up)?;
             if let Some(filter_term) = &filter_term {
                 let filter_term_clean = filter_term.replace(" up", "").replace(" down", "").trim().to_lowercase();
+                let is_up = filter_term.contains(" up");
+                let is_down = filter_term.contains(" down");
                 if let Some(terms) = bitmap.terms.get(gene_set_hash) {
                     if !terms.iter().any(|(_gene_set_id, gene_set_term, _gene_set_description, _fda_approved, _count, _pert)| gene_set_term.to_lowercase().contains(&filter_term_clean)) {
                         return None
                     }
-                }
+                } else if is_up && (result.pvalue_mimic > result.pvalue_reverse) {
+                    return None
+                } else if is_down && (result.pvalue_mimic < result.pvalue_reverse) {
+                    return None
+                }     
             }
             if let Some(filter_fda) = filter_fda {
                 if filter_fda {
