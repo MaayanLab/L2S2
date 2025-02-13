@@ -29,7 +29,6 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
 
   return (
     <>
-      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(false)}>Use Up & Down Gene Sets</button>
       <h1 className="text-xl">Input gene set</h1>
       <p className="prose">
         Try a gene set <a
@@ -74,6 +73,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
       </form>
+      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(false)}>SWITCH TO UP/DOWN SETS INPUT</button>
     </>
   )
 }
