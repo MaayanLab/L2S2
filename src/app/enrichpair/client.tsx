@@ -504,7 +504,7 @@ function EnrichmentResults({
                     >
                       PValue
                       <br />
-                      Up <FaSortUp />
+                      Mimicker <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -515,7 +515,7 @@ function EnrichmentResults({
                     AdjPValue
                     <br />
                     <span className="inline-flex">
-                      Up
+                    Mimicker
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -539,7 +539,7 @@ function EnrichmentResults({
                       <br />
                       Ratio
                       <br />
-                      Up <FaSortUp />
+                      Mimicker <FaSortUp />
                     </span>
                   </th>
                   <th className="relative group">
@@ -567,7 +567,7 @@ function EnrichmentResults({
                     >
                       PValue
                       <br />
-                      Down <FaSortUp />
+                      Reverser <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -578,7 +578,7 @@ function EnrichmentResults({
                     AdjPValue
                     <br />
                     <span className="inline-flex">
-                      Down
+                    Reverser
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -602,7 +602,7 @@ function EnrichmentResults({
                       <br />
                       Ratio
                       <br />
-                      Down <FaSortUp />
+                      Reverser <FaSortUp />
                     </span>
                   </th>
                   <th>
