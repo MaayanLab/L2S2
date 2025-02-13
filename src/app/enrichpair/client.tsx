@@ -461,7 +461,7 @@ function EnrichmentResults({
                   <th>Perturbation</th>
                   <th className="relative group">
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                      Reflecting if there are more significant up or down
+                      Reflecting if there are more significant mimicker or reverser
                       signatures
                     </div>
                     <span className="inline-flex">
@@ -482,10 +482,10 @@ function EnrichmentResults({
                   <th className="relative group">
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       A Fisher&apos;s exact test comparing the number of
-                      significant up signatures, and the number of significant
-                      down signatures,
-                      <br /> the number of insignificant up signatures, and the
-                      number of insignificant down signatures
+                      significant mimicker signatures, and the number of significant
+                      reverser signatures,
+                      <br /> the number of insignificant mimicker signatures, and the
+                      number of insignificant reverser signatures
                     </div>
                     <span
                       className="flex align-text-top cursor-pointer"
@@ -510,7 +510,7 @@ function EnrichmentResults({
                   </th>
                   <th className="relative group">
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
-                      Up p-values adjusted using the Benjamini-Hochberg method
+                      Mimicker p-values adjusted using the Benjamini-Hochberg method
                     </div>
                     AdjPValue
                     <br />
@@ -545,10 +545,10 @@ function EnrichmentResults({
                   <th className="relative group">
                     <div className="absolute z-10 right-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       A Fisher&apos;s exact test comparing the number of
-                      significant down signatures, and the number of significant
-                      up signatures,
-                      <br /> the number of insignificant down signatures, and
-                      the number of insignificant up signatures
+                      significant reverser signatures, and the number of significant
+                      mimicker signatures,
+                      <br /> the number of insignificant reverser signatures, and
+                      the number of insignificant mimicker signatures
                     </div>
                     <span
                       className="flex align-text-top cursor-pointer"
