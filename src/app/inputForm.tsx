@@ -7,7 +7,7 @@ import classNames from 'classnames'
 import { useRouter } from 'next/navigation'
 
 
-export default function InputForm() {
+export default function InputForm({setInputSingle} : {setInputSingle:  React.Dispatch<React.SetStateAction<boolean>>}) {
   const router = useRouter()
   const [rawGenes, setRawGenes] = React.useState('')
   const genes = React.useMemo(() => uniqueArray(rawGenes.split(/[;,\t\r\n\s]+/).filter(v => v)), [rawGenes])
@@ -68,11 +68,12 @@ export default function InputForm() {
             id="fileUpload"
             type="file"
             onChange={(e) => {handleFileChosen(e.target.files?.[0] || null)}}/>
-        {genes.length} gene(s) entered
-        <button className="btn" type="submit">Submit</button>
+        <span className='mx-auto'>{genes.length} gene(s) entered</span>
+        <button className="btn mx-auto" type="submit">Submit</button>
         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
       </form>
+      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(false)}>Use Up & Down Gene Sets</button>
     </>
   )
 }
