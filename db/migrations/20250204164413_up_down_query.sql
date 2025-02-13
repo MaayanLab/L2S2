@@ -14,13 +14,13 @@ create type app_public_v2.paired_enrich_result as (
   adj_pvalue_reverse double precision
 );
 
-comment on type app_public_v2.paired_enrich_result is E'@foreign key (gene_set_hash_up) references app_public_v2.gene_set (id)';
+comment on type app_public_v2.paired_enrich_result is E'@foreign key (gene_set_hash_up) references app_public_v2.gene_set (hash)';
 
 create or replace function app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) returns app_public_v2.gene_set
 as $$
   select gs.*
   from app_public_v2.gene_set gs
-  where gs.id = paired_enrich_result.gene_set_hash_up;
+  where gs.hash = paired_enrich_result.gene_set_hash_up;
 $$ language sql immutable strict;
 grant execute on function app_public_v2.paired_enrich_result_gene_set to guest, authenticated;
 
