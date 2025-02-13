@@ -91,28 +91,6 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
       genesDown: $genesDown
       genesUp: $genesUp
     ) {
-      nodes {
-        geneSetHash
-        pvalue
-        adjPvalue
-        oddsRatio
-        nOverlap
-        geneSets {
-          nodes {
-            id
-            term
-            description
-            nGeneIds
-            geneSetFdaCountsById {
-              nodes {
-                approved
-                count
-              }
-            }
-          }
-          totalCount
-        }
-      }
       totalCount
       consensusCount
       consensus {
@@ -130,6 +108,31 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
         pvalueDown
         adjPvalueDown
         oddsRatioDown
+      }
+      nodes {
+        adjPvalueMimic
+        adjPvalueReverse
+        geneSetHashDown
+        geneSetHashUp
+        mimickerOverlap
+        oddsRatioMimic
+        geneSetHashUp
+        oddsRatioReverse
+        pvalueMimic
+        pvalueReverse
+        reverserOverlap
+        geneSet {
+          geneSetFdaCountsById {
+            nodes {
+              count
+              approved
+            }
+          }
+          term
+          id
+          nGeneIds
+          description
+        }
       }
     }
   }

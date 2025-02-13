@@ -38,7 +38,7 @@ services:
       - POSTGRES_DB
       - POSTGRES_USER
       - POSTGRES_PASSWORD
-      - ENRICH_URL=http://192.168.1.152:8000
+      - ENRICH_URL=http://l2s2-enrich:8000
     ports:
       - 5432:5432
     volumes:

@@ -141,7 +141,7 @@ CREATE TYPE app_public_v2.enrich_result AS (
 -- Name: TYPE enrich_result; Type: COMMENT; Schema: app_public_v2; Owner: -
 --
 
-COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash_down) references app_public_v2.gene_set (hash)';
+COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash_down) references app_public_v2.gene_set (id)';
 
 
 --
@@ -185,11 +185,19 @@ CREATE TYPE app_public_v2.paired_enrich_result AS (
 
 
 --
+-- Name: TYPE paired_enrich_result; Type: COMMENT; Schema: app_public_v2; Owner: -
+--
+
+COMMENT ON TYPE app_public_v2.paired_enrich_result IS '@foreign key (gene_set_hash_up) references app_public_v2.gene_set (id)';
+
+
+--
 -- Name: paginated_paired_enrich_result; Type: TYPE; Schema: app_public_v2; Owner: -
 --
 
 CREATE TYPE app_public_v2.paginated_paired_enrich_result AS (
 	nodes app_public_v2.paired_enrich_result[],
+	consensus app_public_v2.consensus_result[],
 	total_count integer,
 	consensus_count integer
 );
@@ -270,7 +278,7 @@ $$;
 -- Name: indexed_paired_enrich(app_public_v2.background, uuid[], uuid[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_private_v2; Owner: -
 --
 
-CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.background, gene_ids_up uuid[], gene_ids_down uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.background, gene_ids_up uuid[], gene_ids_down uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_paired_enrich_result
     LANGUAGE plpython3u IMMUTABLE PARALLEL SAFE
     AS $$
   import os, requests
@@ -292,7 +300,7 @@ CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.ba
   )
   total_count = req.headers.get('Content-Range').split('/')[1]
   consensus_count = req.headers.get('Content-Range').split('/')[2]
-  return dict(nodes=req.json()['results'], total_count=total_count, consensus_count=consensus_count)
+  return dict(nodes=req.json()['results'],  consensus=req.json()['consensus'], total_count=total_count, consensus_count=consensus_count)
 $$;
 
 
@@ -828,7 +836,7 @@ $$;
 -- Name: background_paired_enrich(app_public_v2.background, character varying[], character varying[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_public_v2; Owner: -
 --
 
-CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.background, genes_up character varying[], genes_down character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_enrich_result
+CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.background, genes_up character varying[], genes_down character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_paired_enrich_result
     LANGUAGE sql IMMUTABLE SECURITY DEFINER PARALLEL SAFE
     AS $$
   select r.*
@@ -1073,6 +1081,19 @@ CREATE FUNCTION app_public_v2.get_pmc_info_by_ids(pmcids character varying[]) RE
   select *
   from app_public_v2.pmc_info
   where pmcid = ANY (pmcIds);
+$$;
+
+
+--
+-- Name: paired_enrich_result_gene_set(app_public_v2.paired_enrich_result); Type: FUNCTION; Schema: app_public_v2; Owner: -
+--
+
+CREATE FUNCTION app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) RETURNS app_public_v2.gene_set
+    LANGUAGE sql IMMUTABLE STRICT
+    AS $$
+  select gs.*
+  from app_public_v2.gene_set gs
+  where gs.id = paired_enrich_result.gene_set_hash_up;
 $$;
 
 

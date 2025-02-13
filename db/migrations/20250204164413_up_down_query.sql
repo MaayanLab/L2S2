@@ -1,4 +1,5 @@
 -- migrate:up
+drop type if exists app_public_v2.paired_enrich_result cascade;
 
 create type app_public_v2.paired_enrich_result as (
   gene_set_hash_up uuid,
@@ -12,8 +13,16 @@ create type app_public_v2.paired_enrich_result as (
   pvalue_reverse double precision,
   adj_pvalue_reverse double precision
 );
-comment on type app_public_v2.enrich_result is E'@foreign key (gene_set_hash_up) references app_public_v2.gene_set (hash)';
-comment on type app_public_v2.enrich_result is E'@foreign key (gene_set_hash_down) references app_public_v2.gene_set (hash)';
+
+comment on type app_public_v2.paired_enrich_result is E'@foreign key (gene_set_hash_up) references app_public_v2.gene_set (id)';
+
+create or replace function app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) returns app_public_v2.gene_set
+as $$
+  select gs.*
+  from app_public_v2.gene_set gs
+  where gs.id = paired_enrich_result.gene_set_hash_up;
+$$ language sql immutable strict;
+grant execute on function app_public_v2.paired_enrich_result_gene_set to guest, authenticated;
 
 drop type if exists app_public_v2.paginated_paired_enrich_result cascade;
 
@@ -23,6 +32,7 @@ create type app_public_v2.paginated_paired_enrich_result as (
   total_count int,
   consensus_count int
 );
+
 
 create or replace function app_private_v2.indexed_paired_enrich(
   background app_public_v2.background,
@@ -38,7 +48,7 @@ create or replace function app_private_v2.indexed_paired_enrich(
   sortby varchar default null,
   filter_ko boolean default false,
   top_n int default 10000
-) returns app_public_v2.paginated_enrich_result as $$
+) returns app_public_v2.paginated_paired_enrich_result as $$
   import os, requests
   params = dict(
     overlap_ge=overlap_ge,
@@ -75,7 +85,7 @@ create or replace function app_public_v2.background_paired_enrich(
   sortby varchar default null,
   filter_ko boolean default false,
   top_n int default 10000
-) returns app_public_v2.paginated_enrich_result
+) returns app_public_v2.paginated_paired_enrich_result
 as $$
   select r.*
   from app_private_v2.indexed_paired_enrich(
@@ -99,5 +109,4 @@ grant execute on function app_public_v2.background_paired_enrich to guest, authe
 
 -- migrate:down
 
-drop type if exists app_public_v2.paginated_enrich_result cascade;
-drop type if exists app_public_v2.consensus_result cascade;
+drop type if exists app_public_v2.paginated_paired_enrich_result cascade;
