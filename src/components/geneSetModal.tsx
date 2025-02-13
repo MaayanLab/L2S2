@@ -214,7 +214,7 @@ export default function GeneSetModal({
               "p-2 text-slate-500 text-sm leading-relaxed whitespace-pre-line overflow-hidden flex flex-grow flex-shrink"
             )}
           >
-            {geneset2 ? (
+            {geneset2 && (
               <div className="overflow-x-auto block">
                 <table className="table table-xs table-pin-rows table-pin-cols">
                   <thead className="bg-white dark:bg-slate-800 sticky top-0">
@@ -245,14 +245,10 @@ export default function GeneSetModal({
                   </tbody>
                 </table>
               </div>
-            ) : (
-              <div className="w-full flex justify-center">
-                <span className="loading loading-ring w-24"></span>
-              </div>
             )}
           </div>
 
-          <div className="flex items-center justify-end border-t border-solid border-slate-200 flex-shrink-0 gap-2 p-3">
+          {geneset2 && <div className="flex items-center justify-end border-t border-solid border-slate-200 flex-shrink-0 gap-2 p-3">
             <button
               className="btn btn-sm btn-outline text-xs"
               type="button"
@@ -298,7 +294,7 @@ export default function GeneSetModal({
             >
               {error?.message ?? null}
             </div>
-          </div>
+          </div>}
         </div>
         <form method="dialog" className="modal-backdrop">
           <button>close</button>
