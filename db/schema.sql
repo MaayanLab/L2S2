@@ -141,7 +141,7 @@ CREATE TYPE app_public_v2.enrich_result AS (
 -- Name: TYPE enrich_result; Type: COMMENT; Schema: app_public_v2; Owner: -
 --
 
-COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash) references app_public_v2.gene_set (hash)';
+COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash_down) references app_public_v2.gene_set (hash)';
 
 
 --
@@ -161,6 +161,35 @@ CREATE TYPE app_public_v2.gene_mapping AS (
 CREATE TYPE app_public_v2.paginated_enrich_result AS (
 	nodes app_public_v2.enrich_result[],
 	consensus app_public_v2.consensus_result[],
+	total_count integer,
+	consensus_count integer
+);
+
+
+--
+-- Name: paired_enrich_result; Type: TYPE; Schema: app_public_v2; Owner: -
+--
+
+CREATE TYPE app_public_v2.paired_enrich_result AS (
+	gene_set_hash_up uuid,
+	gene_set_hash_down uuid,
+	mimicker_overlap integer,
+	reverser_overlap integer,
+	odds_ratio_mimic double precision,
+	odds_ratio_reverse double precision,
+	pvalue_mimic double precision,
+	adj_pvalue_mimic double precision,
+	pvalue_reverse double precision,
+	adj_pvalue_reverse double precision
+);
+
+
+--
+-- Name: paginated_paired_enrich_result; Type: TYPE; Schema: app_public_v2; Owner: -
+--
+
+CREATE TYPE app_public_v2.paginated_paired_enrich_result AS (
+	nodes app_public_v2.paired_enrich_result[],
 	total_count integer,
 	consensus_count integer
 );
@@ -234,6 +263,36 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
   total_count = req.headers.get('Content-Range').split('/')[1]
   consensus_count = req.headers.get('Content-Range').split('/')[2]
   return dict(nodes=req.json()['results'], consensus=req.json()['consensus'], total_count=total_count, consensus_count=consensus_count)
+$$;
+
+
+--
+-- Name: indexed_paired_enrich(app_public_v2.background, uuid[], uuid[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_private_v2; Owner: -
+--
+
+CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.background, gene_ids_up uuid[], gene_ids_down uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_enrich_result
+    LANGUAGE plpython3u IMMUTABLE PARALLEL SAFE
+    AS $$
+  import os, requests
+  params = dict(
+    overlap_ge=overlap_ge,
+    pvalue_le=pvalue_le,
+    adj_pvalue_le=adj_pvalue_le,
+    filter_fda=filter_fda,
+    filter_ko=filter_ko
+  )
+  if filter_term: params['filter_term'] = filter_term
+  if offset: params['offset'] = offset
+  if first: params['limit'] = first
+  if sortby: params['sortby'] = sortby
+  req = requests.post(
+    f"{os.environ.get('ENRICH_URL', 'http://l2s2-enrich:8000')}/pairs/{background['id']}",
+    params=params,
+    json={"up": gene_ids_up, "down": gene_ids_down},
+  )
+  total_count = req.headers.get('Content-Range').split('/')[1]
+  consensus_count = req.headers.get('Content-Range').split('/')[2]
+  return dict(nodes=req.json()['results'], total_count=total_count, consensus_count=consensus_count)
 $$;
 
 
@@ -762,6 +821,32 @@ CREATE FUNCTION app_public_v2.background_overlap(background app_public_v2.backgr
     inner join app_public_v2.gene_set gs on gs.gene_ids ? ig.gene_id
   group by gs.id
   having count(ig.gene_id) > background_overlap.overlap_greater_than;
+$$;
+
+
+--
+-- Name: background_paired_enrich(app_public_v2.background, character varying[], character varying[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_public_v2; Owner: -
+--
+
+CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.background, genes_up character varying[], genes_down character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_enrich_result
+    LANGUAGE sql IMMUTABLE SECURITY DEFINER PARALLEL SAFE
+    AS $$
+  select r.*
+  from app_private_v2.indexed_paired_enrich(
+    background_paired_enrich.background,
+    (select array_agg(gene_id) from app_public_v2.gene_map(genes_up) gm),
+    (select array_agg(gene_id) from app_public_v2.gene_map(genes_down) gm),
+    background_paired_enrich.filter_term,
+    background_paired_enrich.overlap_ge,
+    background_paired_enrich.pvalue_le,
+    background_paired_enrich.adj_pvalue_le,
+    background_paired_enrich."offset",
+    background_paired_enrich."first",
+    background_paired_enrich.filter_fda,
+    background_paired_enrich.sortby,
+    background_paired_enrich.filter_ko,
+    background_paired_enrich.top_n
+  ) r;
 $$;
 
 
@@ -1789,4 +1874,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20240312145213'),
     ('20241106164415'),
     ('20241106193605'),
-    ('20241111165343');
+    ('20241111165343'),
+    ('20250204164413');
