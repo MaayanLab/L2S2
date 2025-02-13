@@ -908,7 +908,7 @@ async fn query_pairs(
             let mut pvalues_reverse = vec![1.0; bitmap.values.len()];
             for result in &results {
                 pvalues_mimic[result.index] = result.pvalue_mimic;
-                pvalues_mimic[result.index] = result.pvalue_reverse;
+                pvalues_reverse[result.index] = result.pvalue_reverse;
             }
             // add adj_pvalues to results
             let adj_pvalues_mimic = adjust(&pvalues_mimic, Procedure::BenjaminiHochberg);
