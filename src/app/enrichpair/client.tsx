@@ -848,7 +848,7 @@ function EnrichmentResults({
                   Sizes
                 </th>
                 <th>
-                  Mimicker Overlap 
+                  Mimicker<br />Overlap 
                 </th>
                 <th>
                   <span
@@ -869,7 +869,7 @@ function EnrichmentResults({
                   >
                     Odds
                     <br />
-                    Ratio Mimicker <FaSortUp />
+                    Ratio<br />Mimicker <FaSortUp />
                   </span>
                 </th>
                 <th className="relative group">
@@ -892,7 +892,7 @@ function EnrichmentResults({
                       })
                     }
                   >
-                    PValue Mimicker <FaSortUp />
+                    PValue<br/>Mimicker <FaSortUp />
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
@@ -902,12 +902,12 @@ function EnrichmentResults({
                     procedure
                   </div>
                   <span className="inline-flex">
-                    AdjPValue Mimicker
+                    AdjPValue<br />Mimicker
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
                 <th>
-                  Mimicker Overlap 
+                  Reverser<br/>Overlap 
                 </th>
                 <th>
                   <span
@@ -928,7 +928,8 @@ function EnrichmentResults({
                   >
                     Odds
                     <br />
-                    Ratio Reverser<FaSortUp />
+                    Ratio <br />
+                    Reverser<FaSortUp />
                   </span>
                 </th>
                 <th className="relative group">
@@ -951,7 +952,7 @@ function EnrichmentResults({
                       })
                     }
                   >
-                    PValue Reverser <FaSortUp />
+                    PValue<br />Reverser <FaSortUp />
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
@@ -961,7 +962,7 @@ function EnrichmentResults({
                     procedure
                   </div>
                   <span className="inline-flex">
-                    AdjPValue Reverser
+                    AdjPValue<br />Reverser
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
@@ -1330,7 +1331,7 @@ export default function EnrichClientPage({
             });
           }}
         >
-          {userGeneSetUp?.userGeneSet?.description || "Gene set"}
+          {(userGeneSetUp && userGeneSetDown) ? (userGeneSetUp?.userGeneSet?.description + " & " + userGeneSetDown?.userGeneSet?.description) : "Up & Down Gene Sets"}
           {userGeneSetUp ? (
             <> ({userGeneSetUp?.userGeneSet?.genes?.length ?? "?"} genes)</>
           ) : null}
