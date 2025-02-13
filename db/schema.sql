@@ -1093,7 +1093,7 @@ CREATE FUNCTION app_public_v2.paired_enrich_result_gene_set(paired_enrich_result
     AS $$
   select gs.*
   from app_public_v2.gene_set gs
-  where gs.id = paired_enrich_result.gene_set_hash_up;
+  where gs.hash = paired_enrich_result.gene_set_hash_up or gs.hash = paired_enrich_result.gene_set_hash_down;
 $$;
 
 
@@ -1896,4 +1896,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20241106164415'),
     ('20241106193605'),
     ('20241111165343'),
-    ('20250204164413');
+    ('20250204164413'),
+    ('20250213194034');
