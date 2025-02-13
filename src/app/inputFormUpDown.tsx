@@ -42,6 +42,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
 
   return (
     <>
+      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(true)}>Use Single Gene Set</button>
       <h1 className="text-xl">Input up & down gene sets</h1>
       <p className="prose">
         Try a gene set signature <a
@@ -115,7 +116,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
         <button className="btn mx-auto" type="submit">Submit</button>
       </form>
-      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(true)}>Use Single Gene Set</button>
+      
     </>
   )
 }
