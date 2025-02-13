@@ -53,7 +53,7 @@ struct Bitmap<B: Integer + Copy + Into<usize>> {
 }
 
 struct SignaturePairs {
-    pairs: Vec<(usize, usize)>, // Stores index pairs for "up" and "down" signatures
+    pairs: Vec<(String, String)>, // Stores index pairs for "up" and "down" signatures
 }
 
 impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
@@ -74,28 +74,29 @@ impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
 
     fn get_signature_pairs(&self) -> SignaturePairs {
         let mut name_to_indices: HashMap<String, (Option<usize>, Option<usize>)> = HashMap::new();
-
-        // Step 1: Iterate through terms to extract and map base names
-        for (idx, (_uuid, term_vec)) in self.terms.iter().enumerate() {
-            for (_term_id, full_name, _other_str, _bool, _i32, _last_str) in term_vec {
-                if let Some(base_name) = full_name.strip_suffix(" up") {
-                    name_to_indices.entry(base_name.to_string()).or_insert((None, None)).0 = Some(idx);
-                } else if let Some(base_name) = full_name.strip_suffix(" down") {
-                    name_to_indices.entry(base_name.to_string()).or_insert((None, None)).1 = Some(idx);
+    
+        // Iterate over values to ensure indices align with `values`
+        for (idx, (uuid, _)) in self.values.iter().enumerate() {
+            if let Some(term_vec) = self.terms.get(uuid) {
+                for (_term_id, full_name, _, _, _, _) in term_vec {
+                    if let Some(base_name) = full_name.strip_suffix(" up") {
+                        name_to_indices.entry(base_name.to_string()).or_insert((None, None)).0 = Some(idx);
+                    } else if let Some(base_name) = full_name.strip_suffix(" down") {
+                        name_to_indices.entry(base_name.to_string()).or_insert((None, None)).1 = Some(idx);
+                    }
                 }
             }
         }
-
-        // Step 2: Extract valid pairs
-        let mut pairs = Vec::new();
-        for (_base_name, (up_idx, down_idx)) in name_to_indices {
-            if let (Some(up), Some(down)) = (up_idx, down_idx) {
-                pairs.push((up, down));
-            }
-        }
-
+    
+        // Extract valid pairs
+        let pairs = name_to_indices
+            .into_iter()
+            .filter_map(|(_base_name, (up_idx, down_idx))| Some((up_idx?, down_idx?)))
+            .collect();
+    
         SignaturePairs { pairs }
     }
+    
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
