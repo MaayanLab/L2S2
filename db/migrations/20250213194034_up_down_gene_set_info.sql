@@ -1,6 +1,6 @@
 -- migrate:up
 
-create or replace function app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) returns app_public_v2.gene_set
+create or replace function app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) returns setof app_public_v2.gene_set
 as $$
   select gs.*
   from app_public_v2.gene_set gs
@@ -10,3 +10,4 @@ grant execute on function app_public_v2.paired_enrich_result_gene_set to guest, 
 
 -- migrate:down
 
+drop function app_public_v2.paired_enrich_result_gene_set;

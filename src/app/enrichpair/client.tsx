@@ -29,10 +29,20 @@ type GeneSetModalT =
       genesDown: string[];
     }
   | {
-      type: "GeneSetOverlap";
-      id: string;
+      type: "GeneSetOverlapMimicker";
+      idUp: string; 
+      idDown: string;
       description: string;
-      genes: string[];
+      genesUp: string[];
+      genesDown: string[];
+    }
+    | {
+      type: "GeneSetOverlapReverser";
+      idUp: string; 
+      idDown: string;
+      description: string;
+      genesUp: string[];
+      genesDown: string[];
     }
   | {
       type: "GeneSet";
@@ -845,7 +855,14 @@ function EnrichmentResults({
                   <br />
                   Set
                   <br />
-                  Sizes
+                  Size Up
+                </th>
+                <th>
+                  Gene
+                  <br />
+                  Set
+                  <br />
+                  Size Down
                 </th>
                 <th>
                   Mimicker<br />Overlap 
@@ -978,31 +995,34 @@ function EnrichmentResults({
               ) : null}
               {enrichmentResults?.currentBackground?.pairedEnrich?.nodes?.flatMap(
                 (enrichmentResult, genesetIndex) => {
-                  const term = enrichmentResult?.geneSet?.term;
+                  const term = enrichmentResult?.geneSet?.nodes[0]?.term;
                   const batch =
-                    enrichmentResult?.geneSet?.term.split("_")[0];
+                    enrichmentResult?.geneSet?.nodes[0].term.split("_")[0];
                   const cellLine =
-                    enrichmentResult?.geneSet?.term.split("_")[1];
+                    enrichmentResult?.geneSet?.nodes[0].term.split("_")[1];
                   const timepoint =
-                    enrichmentResult?.geneSet?.term.split("_")[2];
+                    enrichmentResult?.geneSet?.nodes[0].term.split("_")[2];
                   const batch2 =
-                    enrichmentResult?.geneSet?.term.split("_")[3];
+                    enrichmentResult?.geneSet?.nodes[0].term.split("_")[3];
                   var perturbation =
-                    enrichmentResult?.geneSet?.term.split("_")[4];
+                    enrichmentResult?.geneSet?.nodes[0].term.split("_")[4];
                   if (perturbation?.split(" ").length == 2)
                     perturbation = perturbation?.split(" ")[0] + " KO";
 
                   const count =
-                    enrichmentResult?.geneSet?.geneSetFdaCountsById
+                    enrichmentResult?.geneSet?.nodes[0].geneSetFdaCountsById
                       .nodes[0]?.count || 1;
                   const approved =
-                    enrichmentResult?.geneSet?.geneSetFdaCountsById
+                    enrichmentResult?.geneSet?.nodes[0].geneSetFdaCountsById
                       .nodes[0]?.approved || false;
 
                   const concentration =
-                    enrichmentResult?.geneSet?.term
+                    enrichmentResult?.geneSet?.nodes[0].term
                       .split("_")[5]
                       ?.split(" ")[0] ?? "N/A";
+
+                  const geneSetUp =  enrichmentResult?.geneSet?.nodes.filter((x) => x.term.includes(" up"))[0]
+                  const geneSetDown =  enrichmentResult?.geneSet?.nodes.filter((x) => x.term.includes(" down"))[0]
 
                   if (!enrichmentResult?.geneSet) return null;
                   return (
@@ -1103,12 +1123,12 @@ function EnrichmentResults({
                           onClick={(evt) => {
                             setModalGeneSet({
                               type: "GeneSet",
-                              id: enrichmentResult?.geneSet?.id,
-                              description: term ?? "",
+                              id: geneSetUp?.id,
+                              description: geneSetUp?.term ?? "",
                             });
                           }}
                         >
-                          {enrichmentResult?.geneSet?.nGeneIds}
+                          {geneSetUp?.nGeneIds}
                         </label>
                       </td>
                       <td>
@@ -1117,13 +1137,33 @@ function EnrichmentResults({
                           className="prose underline cursor-pointer"
                           onClick={(evt) => {
                             setModalGeneSet({
-                              type: "GeneSetOverlap",
-                              id: enrichmentResult?.geneSet?.id,
+                              type: "GeneSet",
+                              id: geneSetDown?.id,
+                              description: geneSetDown?.term ?? "",
+                            });
+                          }}
+                        >
+                          {geneSetDown?.nGeneIds}
+                        </label>
+                      </td>
+                      <td>
+                        <label
+                          htmlFor="geneSetModal"
+                          className="prose underline cursor-pointer"
+                          onClick={(evt) => {
+                            setModalGeneSet({
+                              type: "GeneSetOverlapMimicker",
+                              idUp: geneSetUp?.id,
+                              idDown: geneSetDown?.id,
                               description: `${
                                 userGeneSetUp?.userGeneSet?.description ||
-                                "User gene set Up"
-                              } & ${term || "L2S2 gene set"}`,
-                              genes:  genesUp,
+                                "User up gs"
+                              } ∩ ${term || "L2S2 up gs"} + ${
+                                userGeneSetDown?.userGeneSet?.description ||
+                                "User down gs"
+                              } ∩ ${term || "L2S2 down gs"}`,
+                              genesUp:  genesUp,
+                              genesDown:  genesDown,
                             });
                           }}
                         >
@@ -1139,13 +1179,18 @@ function EnrichmentResults({
                           className="prose underline cursor-pointer"
                           onClick={(evt) => {
                             setModalGeneSet({
-                              type: "GeneSetOverlap",
-                              id: enrichmentResult?.geneSetHashDown,
+                              type: "GeneSetOverlapReverser",
+                              idUp: geneSetUp?.id,
+                              idDown: geneSetDown?.id,
                               description: `${
                                 userGeneSetUp?.userGeneSet?.description ||
-                                "User gene set Down"
-                              } & ${term || "L2S2 gene set"}`,
-                              genes:  genesDown,
+                                "User up gs"
+                              } ∩ ${term || "L2S2 down gs"} + ${
+                                userGeneSetDown?.userGeneSet?.description ||
+                                "User down gs"
+                              } ∩ ${term || "L2S2 up gs"}`,
+                              genesUp:  genesUp,
+                              genesDown:  genesDown,
                             });
                           }}
                         >
@@ -1229,13 +1274,43 @@ function GeneSetModalWrapper(props: {
           }
         : undefined,
   });
-  const { data: overlap } = useOverlapQueryQuery({
-    skip: props.modalGeneSet?.type !== "GeneSetOverlap",
+  const { data: overlapUpUp } = useOverlapQueryQuery({
+    skip: props.modalGeneSet?.type !== "GeneSetOverlapMimicker",
     variables:
-      props.modalGeneSet?.type === "GeneSetOverlap"
+      props.modalGeneSet?.type === "GeneSetOverlapMimicker"
         ? {
-            id: props.modalGeneSet.id,
-            genes: props.modalGeneSet?.genes,
+            id: props.modalGeneSet.idUp,
+            genes: props.modalGeneSet?.genesUp,
+          }
+        : undefined,
+  });
+  const { data: overlapDownDown } = useOverlapQueryQuery({
+    skip: props.modalGeneSet?.type !== "GeneSetOverlapMimicker",
+    variables:
+      props.modalGeneSet?.type === "GeneSetOverlapMimicker"
+        ? {
+            id: props.modalGeneSet.idDown,
+            genes: props.modalGeneSet?.genesDown,
+          }
+        : undefined,
+  });
+  const { data: overlapUpDown } = useOverlapQueryQuery({
+    skip: props.modalGeneSet?.type !== "GeneSetOverlapReverser",
+    variables:
+      props.modalGeneSet?.type === "GeneSetOverlapReverser"
+        ? {
+            id: props.modalGeneSet.idUp,
+            genes: props.modalGeneSet?.genesDown,
+          }
+        : undefined,
+  });
+  const { data: overlapDownUp } = useOverlapQueryQuery({
+    skip: props.modalGeneSet?.type !== "GeneSetOverlapReverser",
+    variables:
+      props.modalGeneSet?.type === "GeneSetOverlapReverser"
+        ? {
+            id: props.modalGeneSet.idDown,
+            genes: props.modalGeneSet?.genesUp,
           }
         : undefined,
   });
@@ -1264,8 +1339,10 @@ function GeneSetModalWrapper(props: {
       geneset={
         props.modalGeneSet?.type === "GeneSet"
           ? geneSet?.geneSet?.genes.nodes
-          : props.modalGeneSet?.type === "GeneSetOverlap"
-          ? overlap?.geneSet?.overlap.nodes
+          : props.modalGeneSet?.type === "GeneSetOverlapMimicker"
+          ? overlapUpUp?.geneSet?.overlap.nodes.concat(overlapDownDown?.geneSet?.overlap.nodes ?? [])
+          : props.modalGeneSet?.type === "GeneSetOverlapReverser"
+          ? overlapUpDown?.geneSet?.overlap.nodes.concat(overlapDownUp?.geneSet?.overlap.nodes ?? [])
           : props.modalGeneSet?.type === "UserGeneSets"
           ? userGeneSetUp?.geneMap2?.nodes
             ? userGeneSetUp.geneMap2.nodes.map(({ gene, geneInfo }) => ({

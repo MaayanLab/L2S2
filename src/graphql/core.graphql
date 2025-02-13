@@ -122,16 +122,18 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
         pvalueReverse
         reverserOverlap
         geneSet {
-          geneSetFdaCountsById {
-            nodes {
-              count
-              approved
+          nodes {
+            description
+            id
+            nGeneIds
+            term
+            geneSetFdaCountsById {
+              nodes {
+                count
+                approved
+              }
             }
           }
-          term
-          id
-          nGeneIds
-          description
         }
       }
     }

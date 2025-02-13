@@ -1088,7 +1088,7 @@ $$;
 -- Name: paired_enrich_result_gene_set(app_public_v2.paired_enrich_result); Type: FUNCTION; Schema: app_public_v2; Owner: -
 --
 
-CREATE FUNCTION app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) RETURNS app_public_v2.gene_set
+CREATE FUNCTION app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) RETURNS SETOF app_public_v2.gene_set
     LANGUAGE sql IMMUTABLE STRICT
     AS $$
   select gs.*
