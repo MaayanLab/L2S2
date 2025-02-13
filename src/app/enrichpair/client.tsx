@@ -323,7 +323,7 @@ function EnrichmentResults({
                 });
             }}
           >
-            UP
+            Mimickers
           </div>
           <div
             className={
@@ -359,7 +359,7 @@ function EnrichmentResults({
                 });
             }}
           >
-            DOWN
+            Reversers
           </div>
         </div>
         {consensus ? (
