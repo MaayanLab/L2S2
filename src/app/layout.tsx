@@ -126,7 +126,7 @@ export default function RootLayout({
                 </div>
               </div>
             </header>
-            <main className="flex-1 flex flex-col justify-stretch mx-8 md:mx-32">
+            <main className="flex-1 flex-col justify-stretch mx-8 md:mx-32">
               <React.Suspense
                 fallback={
                   <span className="loading loading-ring loading-lg"></span>
