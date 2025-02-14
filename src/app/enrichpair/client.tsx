@@ -291,7 +291,7 @@ function EnrichmentResults({
         >
           <div
             className={
-              queryString.dir == "up"
+              (queryString.dir == "up" || queryString.sortBy == "pvalue_mimic")
                 ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer"
                 : "join-item px-3 py-1.5  bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"
             }
@@ -304,7 +304,7 @@ function EnrichmentResults({
                   dir: "",
                   fda: queryString.fda,
                   consensus: queryString.consensus,
-                  sort: queryString.sort,
+                  sort: "pvalue_mimic",
                   ko: queryString.ko,
                   topn: queryString.topn,
                   pvaluele: queryString.pvaluele,
@@ -316,7 +316,7 @@ function EnrichmentResults({
                   dir: "up",
                   fda: queryString.fda,
                   consensus: queryString.consensus,
-                  sort: queryString.sort,
+                  sort: "pvalue_mimic",
                   ko: queryString.ko,
                   topn: queryString.topn,
                   pvaluele: queryString.pvaluele,
@@ -327,7 +327,7 @@ function EnrichmentResults({
           </div>
           <div
             className={
-              queryString.dir == "down"
+              (queryString.dir == "down" || queryString.sortBy == "pvalue_reverse")
                 ? "join-item px-3 py-1.5 text-sm bg-purple-400 hover:bg-purple-600 font-bold cursor-pointer"
                 : "join-item px-3 py-1.5 bg-gray-100 cursor-pointer font-bold text-sm dark:bg-gray-900"
             }
@@ -340,7 +340,7 @@ function EnrichmentResults({
                   dir: "",
                   fda: queryString.fda,
                   consensus: queryString.consensus,
-                  sort: queryString.sort,
+                  sort: "pvalue_reverse",
                   ko: queryString.ko,
                   topn: queryString.topn,
                   pvaluele: queryString.pvaluele,
@@ -352,7 +352,7 @@ function EnrichmentResults({
                   dir: "down",
                   fda: queryString.fda,
                   consensus: queryString.consensus,
-                  sort: queryString.sort,
+                  sort: "pvalue_reverse",
                   ko: queryString.ko,
                   topn: queryString.topn,
                   pvaluele: queryString.pvaluele,
