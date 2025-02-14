@@ -41,6 +41,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
       <form
         className="flex flex-col place-items-end"
         onSubmit={async (evt) => {
+          if (genes.length < 1) return
           evt.preventDefault()
           const result = await addUserGeneSetMutation({
             variables: {

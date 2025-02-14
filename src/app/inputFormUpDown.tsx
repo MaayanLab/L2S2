@@ -56,6 +56,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
       <form
         className="flex flex-col place-items-end"
         onSubmit={async (evt) => {
+          if (genesUp.length < 1 || genesDown.length < 1) return
           evt.preventDefault()
           const resultUp = await addUserGeneSetMutation({
             variables: {
