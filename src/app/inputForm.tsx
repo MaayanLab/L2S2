@@ -41,8 +41,8 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
       <form
         className="flex flex-col place-items-end"
         onSubmit={async (evt) => {
-          if (genes.length < 1) return
           evt.preventDefault()
+          if (genes.length < 1) return
           const result = await addUserGeneSetMutation({
             variables: {
               genes,
@@ -70,7 +70,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
             type="file"
             onChange={(e) => {handleFileChosen(e.target.files?.[0] || null)}}/>
         <span className='mx-auto'>{genes.length} gene(s) entered</span>
-        <button className="btn mx-auto" type="submit">Submit</button>
+        <button className="btn mx-auto" type="submit" disabled={genes.length < 1}>Submit</button>
         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
       </form>

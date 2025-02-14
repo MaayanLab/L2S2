@@ -56,8 +56,9 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
       <form
         className="flex flex-col place-items-end"
         onSubmit={async (evt) => {
-          if (genesUp.length < 1 || genesDown.length < 1) return
           evt.preventDefault()
+          if (genesUp.length < 1 || genesDown.length < 1) return
+          
           const resultUp = await addUserGeneSetMutation({
             variables: {
               genes: genesUp,
@@ -115,7 +116,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
         </div>
         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
-        <button className="btn mx-auto" type="submit">Submit</button>
+        <button className="btn mx-auto" type="submit" disabled={(genesUp.length < 1 || genesDown.length < 1)}>Submit</button>
       </form>
       <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(true)}>SWITCH TO SINGLE SET INPUT</button>
     </>
