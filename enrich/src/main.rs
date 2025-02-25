@@ -983,7 +983,7 @@ async fn query_pairs(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if a < 5 {
+            if (a < 5 || c < 0 || d < 0) {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
