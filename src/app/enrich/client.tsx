@@ -377,49 +377,8 @@ function EnrichmentResults({
               <FaFilter />
             </button>
           </div>
-        </div> : <div className="inline-flex items-center ml-5 transition-all accent-purple-500">
-          <label
-            className="text-sm font-bold mr-3 tooltip inline-flex"
-            htmlFor="default-range"
-            data-tip="Threshold for p-value for significance"
-          >
-            P-value Threshold{" "}
-            <IoMdInformationCircleOutline className="ml-0.5" />
-          </label>
-          <div className="tooltip" data-tip={pvalueLeSlider.toString()}>
-            <input
-              id="default-range"
-              type="range"
-              value={pvalueLeSlider}
-              onChange={(evt) => setPvalueLeSlider(Number(evt.target.value))}
-              max={0.05}
-              min={0.001}
-              step={0.001}
-              className="w-52 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
-            ></input>
-          </div>
-
-          <div className="tooltip ml-2" data-tip="Apply Threshold">
-            <button
-              className="btn btn-sm bg-transparent p-2"
-              onClick={() => {
-                setQueryString({
-                  page: "1",
-                  q: rawTerm,
-                  dir: queryString.dir,
-                  fda: queryString.fda,
-                  consensus: queryString.consensus,
-                  sort: queryString.sort,
-                  ko: queryString.ko,
-                  topn: queryString.topn,
-                  pvaluele: pvalueLeSlider.toString(),
-                });
-              }}
-            >
-              <FaFilter />
-            </button>
-          </div>
-        </div>}
+        </div> : 
+        <></>}
 
         <form
           id="search-form"

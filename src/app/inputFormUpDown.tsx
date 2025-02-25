@@ -15,6 +15,8 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
   const genesDown = React.useMemo(() => uniqueArray(rawGenesDown.split(/[;,\t\r\n\s]+/).filter(v => v)), [rawGenesDown])
   const [addUserGeneSetMutation, { loading, error }] = useAddUserGeneSetMutation()
   var fileReader = React.useRef<FileReader | null>(null);
+  const [upDescription, setUpDescription] = React.useState('')
+  const [downDescription, setDownDescription] = React.useState('') 
 
   const handleFileReadUp = React.useCallback(() => {
       const content = fileReader!.current!.result as string;
@@ -50,6 +52,8 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
           onClick={() => {
             setRawGenesUp(example.genes.join('\n'))
             setRawGenesDown(example.downGenes.join('\n'))
+            setUpDescription('Consensus Dexamethasone Up')
+            setDownDescription('Consensus Dexamethasone Down')
           }}
         >example</a>.
       </p>
@@ -62,13 +66,13 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
           const resultUp = await addUserGeneSetMutation({
             variables: {
               genes: genesUp,
-              description: 'Consensus Dexamethasone Up',
+              description: upDescription,
             }
           })
           const resultDown = await addUserGeneSetMutation({
             variables: {
               genes: genesDown,
-              description: 'Consensus Dexamethasone Down',
+              description: downDescription,
             }
           })
           const idUp = resultUp.data?.addUserGeneSet?.userGeneSet?.id
@@ -90,7 +94,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
               placeholder="Paste a set of valid Entrez gene symbols (e.g. STAT3) on each row in the text-box"
             />
             <input
-                className="block w-full mb-5 text-xs text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+                className="block w-full mb-5 text-xs border-2 rounded-lg pl-2 text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
                 id="fileUpload"
                 type="file"
                 onChange={(e) => {handleFileChosenUp(e.target.files?.[0] || null)}}/>
@@ -107,7 +111,7 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
             placeholder="Paste a set of valid Entrez gene symbols (e.g. STAT3) on each row in the text-box"
           />
           <input
-              className="block w-full mb-5 text-xs text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+              className="block w-full text-xs mb-5 border-2 rounded-lg pl-2 text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
               id="fileUpload"
               type="file"
               onChange={(e) => {handleFileChosenDown(e.target.files?.[0] || null)}}/>

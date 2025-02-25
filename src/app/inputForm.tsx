@@ -65,7 +65,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
           placeholder="Paste a set of valid Entrez gene symbols (e.g. STAT3) on each row in the text-box"
         />
         <input
-            className="block w-full mb-5 text-xs text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
+            className="block w-full mb-5 text-xs border-2 rounded-lg pl-2 text-gray-900 cursor-pointer dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
             id="fileUpload"
             type="file"
             onChange={(e) => {handleFileChosen(e.target.files?.[0] || null)}}/>

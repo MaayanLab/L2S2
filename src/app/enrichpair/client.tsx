@@ -84,7 +84,7 @@ function EnrichmentResults({
     dir: "",
     fda: "false",
     consensus: "false",
-    sort: "pvalue",
+    sort: "pvalue_mimic",
     ko: "false",
     topn: "1000",
     pvaluele: "0.05",
