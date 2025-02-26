@@ -1,260 +1,186 @@
-# %%
-import re
-import pathlib
-from pprint import pprint
-import os
 
-from pathlib import Path
+#%%
 import pandas as pd
+import os
+import json
+import pyenrichr as pye
+from tqdm import tqdm
 import numpy as np
-from matplotlib import pyplot as plt
+from numba import float64, int64, njit, prange
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+import pathlib
 
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+fig_dir = pathlib.Path('figures')/'fig4'
+fig_dir.mkdir(parents=True, exist_ok=True)
 
-import pyLDAvis
-import pyLDAvis.gensim
 
-import gensim
-import gensim.corpora as corpora
+# %%
+@njit(parallel=True)
+def get_p_value_list(fisher, contingency_tables):
+    num_tests = contingency_tables.shape[0]
+    results = np.empty(num_tests, dtype=np.float64)
+    for i in prange(num_tests):
+        a, b, c, d = contingency_tables[i]
+        p_value = fisher.get_p_value(a, b, c, d)
+        results[i] = p_value
+    return results
 
-from sklearn.manifold import TSNE
-from bokeh.plotting import figure
+# %%
+with open('../data/counts_genes.json') as f:
+    counts = json.load(f)
+    
+with open('../data/counts_perts.json') as f:
+    counts_perts = json.load(f)
 
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.corpus import wordnet
-nltk.download('wordnet')
-nltk.download('punkt')
-nltk.download('stopwords')
-from nltk.stem import WordNetLemmatizer
+counts.update(counts_perts)
 
-from common import data_dir 
 
-def read_gmt(path):
-  with pathlib.Path(path).open('r') as fr:
-    return {
-      term: {
-        gene: 1
-        for gene in geneset
-      }
-      for line in fr
-      for term, _, *geneset in (line.strip().split('\t'),)
+#%%
+fisher = pye.enrichment.FastFisher(44000)
+def compute_consensus_stats_up_dn(enrich_df):
+    # Ensure 'is_up' and 'is_down' columns exist
+    enrich_df = enrich_df.assign(
+        is_mimicker=enrich_df['pvalue_mimic'] < 0.05,
+        is_reverser=enrich_df['pvalue_reverse'] < 0.05
+    )
+
+    # Filter for 'pert' values in counts
+    enrich_df = enrich_df[enrich_df['pert'].isin(counts)]
+    
+    # Precompute total_n
+    enrich_df['total_n'] = enrich_df['pert'].map(counts)
+
+    # Group by 'pert' and compute aggregates
+    grouped = enrich_df.groupby('pert').agg(
+        a_up=('is_mimicker', 'sum'),
+        b_up=('is_reverser', 'sum'),
+        total_n=('total_n', 'first')  # All rows in the same group have the same total_n
+    ).reset_index()
+
+    # Compute additional columns for Fisher's test
+    grouped['a_down'] = (grouped['total_n'] // 2) - grouped['a_up']
+    grouped['b_down'] = (grouped['total_n'] // 2) - grouped['b_up']
+
+    # Create contingency tables
+    contingency_tables = grouped[['a_up', 'b_up', 'a_down', 'b_down']].to_numpy(dtype=np.int64)
+
+    # Compute p-values using the FastFisher instance
+    p_values_up = get_p_value_list(fisher, contingency_tables)
+    p_values_down = get_p_value_list(
+        fisher, contingency_tables[:, [1, 0, 3, 2]]  # Swap a/b and c/d for down test
+    )
+
+    # Append results to the DataFrame
+    grouped['pvalue_mimicker'] = p_values_up
+    grouped['pvalue_reverser'] = p_values_down
+
+    # Return the final DataFrame
+    return grouped[['pert', 'pvalue_mimicker', 'pvalue_reverser']]
+
+def get_consensus_ranking_dicts(dir, positive_func):
+
+    ranking_dict = {
+        #"pvalue_mimicker_500": {"scores": [], "labels": []},
+        #"pvalue_mimicker_1000": {"scores": [], "labels": []},
+        "pvalue_mimicker_5000": {"scores": [], "labels": []},    
+        #"pvalue_mimicker_10000": {"scores": [], "labels": []},
+        "pvalue_mimicker_20000": {"scores": [], "labels": []},
+        #"pvalue_mimicker_40000": {"scores": [], "labels": []},
+        "pvalue_mimicker_50000": {"scores": [], "labels": []},
     }
-  
-def extract_terms(path):
-  with pathlib.Path(path).open('r') as fr:
-    return [line.strip().split('\t')[0] for line in fr]
+
+    for file in tqdm(os.listdir(dir)): 
+        enrich_df = pd.read_csv(f'{dir}/{file}', sep='\t', index_col=0)
+        enrich_df['pert'] = enrich_df['sig'].map(lambda term: term.split('_')[4])
+        enrich_df = enrich_df[enrich_df['pvalue_mimic'] < 0.05]
+        enrich_df.sort_values('pvalue_mimic', inplace=True)
+        enrich_df.reset_index(inplace=True, drop=True)
+        for topn in [5000, 20000, 50000]:
+            consensus_table = compute_consensus_stats_up_dn(enrich_df[:topn])
+            consensus_table['hit'] = consensus_table['pert'].map(positive_func)
+            consensus_table.sort_values('pvalue_mimicker', inplace=True)
+            consensus_table.reset_index(inplace=True, drop=True)
+            consensus_table['scores'] = 1 -  ((consensus_table.index.values + 1) / len(consensus_table))
+           
+            ranking_dict[f'pvalue_mimicker_{topn}']["labels"].extend(consensus_table['hit'].values)
+            ranking_dict[f'pvalue_mimicker_{topn}']["scores"].extend(consensus_table['scores'].values)
+    return ranking_dict
+
+
+
+def get_mw_ks_ranking_dicts(dir, positive_func):
+    
+    mw_ks_ranking_dict = {
+        "pvalue": {"scores": [], "labels": []}
+    }
+    
+    for f in tqdm(os.listdir(dir)):
+        if 'mimickers_' in f:
+            df = pd.read_csv(f'{dir}/{f}', sep='\t', index_col=0).rename(columns={'total sigs': 'count'})
+            df = df[df['p-value'] < 0.05]
+            df.sort_values(by='p-value', inplace=True, ascending=True)
+            df.index.name = 'term'
+            df.reset_index(drop=False, inplace=True)
+            df['labels'] = [1 if positive_func(x.split()[0].lower()) else 0 for x in df['term']]
+            df['scores'] = 1 -  ((df.index.values) / len(df))
+            mw_ks_ranking_dict['pvalue']['scores'].extend(list(df['scores']))
+            mw_ks_ranking_dict['pvalue']['labels'].extend(list(df['labels']))
+    return mw_ks_ranking_dict
+#%%
+
+all_counts = pd.read_csv(f"data/dex_l1000_ranker/mw/mw0b4d450290.tsv", sep='\t').rename(columns={'total sigs': 'count', 'Unnamed: 0': 'term'})[['term', 'count']]
+all_counts
+len(all_counts)
+#%%
+def plot_ranking_dicts(ranking_dicts, save=None):
+    plt.figure(figsize=(10, 8))
+    for ranking_dict_name in ranking_dicts:
+        ranking_dict = ranking_dicts[ranking_dict_name]
+        for m in ranking_dict.keys():  
+            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m} (AUC = {roc_auc:.2f})')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.legend(loc='lower right')
+            plt.grid(alpha=0.3)
+    plt.plot([0, 1], [0, 1], color='gray', linestyle='--', label='Random')
+    if save:
+        plt.savefig(save, dpi=300, bbox_inches='tight')
+    plt.show()
+
+#%%        
+dex_ranking_dict = get_consensus_ranking_dicts('data/dex_pair_enrichment', lambda x: "dexamethasone" in x)
+
+#%%
+dex_mw_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/mw', lambda x: "dexamethasone" in x)
+dex_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/uniform_2t', lambda x: "dexamethasone" in x)
+dex_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/norm_2t', lambda x: "dexamethasone" in x)
+#%%
+plot_ranking_dicts({'Up-Down Top N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4a.pdf')
+plot_ranking_dicts({'Up-Down Top N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir /'fig4a.png')
 
 # %%
-terms = extract_terms(data_dir/'table-mining-clean.gmt')
-len(terms)
+thiazolidinedione_ranking_dict = get_consensus_ranking_dicts('data/thiazolidinedione_pair_enrichment', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
 
 # %%
-df = pd.DataFrame(data=[terms], index=['terms']).T
-df['pmc'] = df['terms'].apply(lambda t: t.split('-')[0])
-print('GMT contains gene sets from', len(set(df['pmc'])), 'articles')
+thiazolidinedione_mw_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/mw', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
+thiazolidinedione_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/uniform_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
+thiazolidinedione_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/norm_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
 
+#%%
+plot_ranking_dicts({'Up-Down Top N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.pdf')
+plot_ranking_dicts({'Up-Down Top N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.png')
 # %%
-papers_value_counts = df['pmc'].value_counts()
-relevant_papers = papers_value_counts[papers_value_counts < 200].index
 
+#%%
+tamoxifen_ranking_dict = get_consensus_ranking_dicts('data/tamoxifen_pair_enrichment', lambda x: 'tamoxifen' in x)
 # %%
-df_filtered = df[df['pmc'].isin(relevant_papers)]
-df_filtered.shape
-
+tamoxifen_mw_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/mw', lambda x: 'tamoxifen' in x)
+tamoxifen_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/uniform_2t', lambda x: 'tamoxifen' in x)
+tamoxifen_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/norm_2t', lambda x: 'tamoxifen' in x)
 # %%
-def fetch_oa_file_list(data_dir = Path()):
-  ''' Fetch the PMCID, PMID, oa_file listing; we sort it newest first.
-  ['File'] has the oa_package which is a relative path to a tar.gz archive containing
-   the paper and all figures.
-  '''
-  oa_file_list = data_dir / 'oa_file_list.csv'
-  if not oa_file_list.exists():
-    df = pd.read_csv('https://ftp.ncbi.nlm.nih.gov/pub/pmc/oa_file_list.csv')
-    ts_col = df.columns[-3]
-    df[ts_col] = pd.to_datetime(df[ts_col])
-    df.sort_values(ts_col, ascending=False, inplace=True)
-    df.to_csv(oa_file_list, index=None)
-  else:
-    df = pd.read_csv(oa_file_list)
-  return df
-
-oa_file_list = fetch_oa_file_list(data_dir)
-X_embed_more = pd.merge(left=df_filtered, left_on='pmc', right=oa_file_list, right_on='Accession ID')
-
+plot_ranking_dicts({'Up-Down Top N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.pdf')
+plot_ranking_dicts({'Up-Down Top N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.png')
 # %%
-df_pmcids = pd.read_csv(data_dir/'PMC-ids.csv')
-X_embed_more = pd.merge(left=X_embed_more, left_on='pmc', right=df_pmcids, right_on='PMCID')
-
-# %%
-doi_abs_titles = pd.read_csv('data/doi_info.csv')
-
-# %%
-doi_abs_titles['description'] = doi_abs_titles['title'] + doi_abs_titles['abstract']
-abstracts_raw = doi_abs_titles[['DOI', 'description']].dropna()['description']
-
-# %%
-abstracts = abstracts_raw.fillna('')
-abstracts = abstracts.apply(lambda abstract: word_tokenize(re.sub("[^A-Za-z']+", ' ', abstract)))
-
-# %%
-stopwords_en = set(stopwords.words('english'))
-abstracts = abstracts.apply(lambda abstract: [w for w in abstract if w.lower() not in stopwords_en and len(w) > 2])
-lemmatizer = WordNetLemmatizer()
-abstracts = abstracts.apply(lambda abstract: [lemmatizer.lemmatize(w) for w in abstract])
-
-# %%
-count_vectorizer = CountVectorizer()
-counts = count_vectorizer.fit_transform(abstracts_raw.fillna(''))
-tfidf_vectorizer = TfidfTransformer().fit(counts)
-tfidf_abstracts = tfidf_vectorizer.transform(counts)
-tfidf_abstracts.shape
-
-# %%
-def run_affinity_prop():
-    from sklearn.cluster import AffinityPropagation
-    X = tfidf_abstracts
-    clustering = AffinityPropagation().fit(X)
-    clustering
-    abstract_affinity_clusters = list(clustering.labels_)
-    num_topics = len(set(abstract_affinity_clusters))
-    print('Predicted Number of Topics:', num_topics)
-
-# %%
-dictionary = corpora.Dictionary(abstracts.values)
-texts = abstracts_raw
-corpus = [dictionary.doc2bow(abstract) for abstract in list(abstracts.values)]
-
-# %%
-doi_abs_titles
-
-# %%
-abstracts
-
-# %%
-lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus,
-                                           id2word=dictionary,
-                                           num_topics=10, 
-                                           random_state=100,
-                                           update_every=1,
-                                           chunksize=100,
-                                           passes=10,
-                                           alpha='auto',
-                                           per_word_topics=True)
-
-# %%
-pprint(lda_model.print_topics())
-doc_lda = lda_model[corpus]
-
-# %%
-paper_topics = lda_model.get_document_topics(corpus)
-
-
-# %%
-def format_topics_sentences(ldamodel=None, corpus=corpus, texts=None):
-
-    sent_topics = []
-
-    # Get main topic in each document
-    for i, row_list in enumerate(ldamodel[corpus]):
-        row = row_list[0] if ldamodel.per_word_topics else row_list            
-
-        row = sorted(row, key=lambda x: (x[1]), reverse=True)
-        # Get the Dominant topic, Perc Contribution and Keywords for each document
-        for j, (topic_num, prop_topic) in enumerate(row):
-            if j == 0:  # => dominant topic
-                wp = ldamodel.show_topic(topic_num)
-                topic_keywords = ", ".join([word for word, prop in wp])
-                sent_topics.append([int(topic_num), round(prop_topic,4), topic_keywords])
-            else:
-                break
-    sent_topics_df = pd.DataFrame(data=sent_topics, columns=['Topic', 'Topic % Contribution', 'Keywords'])
-
-    contents = pd.Series(texts)
-    sent_topics_df = pd.concat([sent_topics_df, contents], axis=1)
-    return(sent_topics_df)
-
-df_topic_sents_keywords = format_topics_sentences(ldamodel=lda_model, corpus=corpus, texts=abstracts)
-
-# Format
-df_dominant_topic = df_topic_sents_keywords.reset_index()
-df_dominant_topic.columns = ['Document_No', 'Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords', 'Text']
-df_dominant_topic.head(10)
-
-# %%
-doc_lens = [len(d) for d in df_dominant_topic.Text]
-
-# %%
-# 1. Wordcloud of Top N words in each topic
-import matplotlib.colors as mcolors
-
-cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]  # more colors: 'mcolors.XKCD_COLORS'
-
-# %%
-from collections import Counter
-topics = lda_model.show_topics(formatted=False)
-data_flat = [w for w_list in abstracts for w in w_list]
-counter = Counter(data_flat)
-
-out = []
-for i, topic in topics:
-    for word, weight in topic:
-        out.append([word, i , weight, counter[word]])
-
-df = pd.DataFrame(out, columns=['word', 'topic_id', 'importance', 'word_count'])    
-
-df['log_word_count'] = df['word_count'].apply(lambda x: x/100000)
-df = df.drop(columns='word_count')
-
-# Plot Word Count and Weights of Topic Keywords
-fig, axes = plt.subplots(5, 2, figsize=(16,14), sharey=True, dpi=160)
-cols = [color for name, color in mcolors.TABLEAU_COLORS.items()]
-for i, ax in enumerate(axes.flatten()):
-    ax.bar(x='word', height="log_word_count", data=df.loc[df.topic_id==i, :], color=cols[i], width=0.5, alpha=0.3, label='Word Count')
-    ax_twin = ax.twinx()
-    ax_twin.bar(x='word', height="importance", data=df.loc[df.topic_id==i, :], color=cols[i], width=0.2, label='Weights')
-    ax.set_ylabel('Word Count / 10^3', color=cols[i])
-    #ax_twin.set_ylim(0, 0.8);
-    ax.set_title('Topic: ' + str(i + 1), color=cols[i], fontsize=16)
-    ax.tick_params(axis='y', left=False)
-    ax.set_xticklabels(df.loc[df.topic_id==i, 'word'], rotation=30, horizontalalignment= 'right')
-    ax.legend(loc='upper center'); ax_twin.legend(loc='upper right')
-
-fig.tight_layout(w_pad=2)    
-fig.suptitle('Word Count and Importance of Topic Keywords', fontsize=22, y=1.05)    
-os.makedirs('figures/fig4', exist_ok=True)
-plt.savefig('figures/4a.png')
-
-# %%
-# Get topic weights and dominant topics ------------
-
-
-# Get topic weights
-topic_weights = []
-for i, row_list in enumerate(lda_model[corpus]):
-    topic_weights.append([w for i, w in row_list])
-
-# Array of topic weights    
-arr = pd.DataFrame(topic_weights).fillna(0).values
-
-# Keep the well separated points (optional)
-arr = arr[np.amax(arr, axis=1) > 0.35]
-
-# Dominant topic number in each doc
-topic_num = np.argmax(arr, axis=1)
-
-# tSNE Dimension Reduction
-tsne_model = TSNE(n_components=2, verbose=1, random_state=0, angle=.99, init='pca')
-tsne_lda = tsne_model.fit_transform(arr)
-
-# Plot the Topic Clusters using Bokeh
-n_topics = 10
-
-new_colors = np.array(['#75b8e7', '#ffa85c', '#54d654', '#fc5d5e', '#c792f7','#9e7972', '#f7b2e2', '#bdbdbd', '#feff52','#52efff'])
-mycolors = np.array([color for name, color in mcolors.TABLEAU_COLORS.items()])
-plot = figure( plot_width=900, plot_height=700)
-plot.scatter(x=tsne_lda[:,0], y=tsne_lda[:,1], color=new_colors[topic_num])
-plot.savefig('figures/fig4/4b.png')
-
-

@@ -1,84 +1,104 @@
-
-import os
-import pandas as pd
-from common import data_dir, add_p_value_annotation
-import plotly.graph_objects as go
+#%%
+import re
+import pathlib
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from maayanlab_bioinformatics.dge import limma_voom_differential_expression
+from maayanlab_bioinformatics.harmonization import ncbi_genes_lookup
+from maayanlab_bioinformatics.api import enrichr_get_top_results
+from common import *
 
-sigs_df = pd.read_csv(data_dir/'sigs_df_annotated.tsv', sep='\t', index_col=0, compression='gzip')
+lookup = ncbi_genes_lookup()
 
-fig = go.Figure()
-vecs= [('all pairs',sigs_df['most_cited_genes_percent'].values), ('top 10,000',sigs_df['most_cited_genes_percent'].values[:10000]), ('top 1000',sigs_df['most_cited_genes_percent'].values[:1000]), ('top 100',sigs_df['most_cited_genes_percent'].values[:100])]
+#%%
+fig_dir = pathlib.Path('figures')/'fig5'
+fig_dir.mkdir(parents=True, exist_ok=True)
 
-fig.add_traces(
-    go.Box(
-        mean=[np.mean(vec) for _, vec in vecs],
-        upperfence=[np.max(vec) for _, vec in vecs],
-        sd =[np.std(vec) for _, vec in vecs],
-        lowerfence=[np.min(vec) for _, vec in vecs],
-        median=[np.quantile(vec, .5) for _, vec in vecs],
-        q1=[np.quantile(vec, .25) for _, vec in vecs],
-        q3=[np.quantile(vec, .75) for _, vec in vecs],
-        x=[name for name, _ in vecs],
-        line=dict(color='black'),
-        boxpoints=False,
-    )
-)
-fig.update_layout(yaxis_title="top 500 cited genes", plot_bgcolor='white', yaxis_gridcolor='gray')
+#%%
 
-fig = add_p_value_annotation(fig, [[0, 1], [0, 2], [0, 3]])
+CYTOR_df = pd.read_csv('data/GSE285084_CYTOR_KD_Gene_Counts.csv', index_col=0)
+KD_samples = [col for col in CYTOR_df.columns if 'CYTOR' in col]
+CTRL_samples = [col for col in CYTOR_df.columns if 'NC' in col]
+dge = limma_voom_differential_expression(CYTOR_df[CTRL_samples], CYTOR_df[KD_samples])
+dge
 
-os.makedirs('figures/fig5', exist_ok=True)
-fig.save('figures/fig5/5a.png')
+# %%
+
+dge[dge['adj.P.Val'] < 0.01].sort_values('logFC', ascending=False)
+CYTOR_up = dge[(dge['adj.P.Val'] < 0.01) & (dge['logFC'] > 0)].index
+CYTOR_down = dge[(dge['adj.P.Val'] < 0.01) & (dge['logFC'] < 0)].index
+# %%
+
+CYTOR_up_genes = [lookup(gene.split('.')[0]) for gene in CYTOR_up if lookup(gene.split('.')[0])]
+CYTOR_down_genes = [lookup(gene.split('.')[0]) for gene in CYTOR_down if lookup(gene.split('.')[0])]
 
 
+print("CYTOR KD DGE (Adj. P-value < 0.01) up genes:", len(CYTOR_up_genes), "down genes:", len(CYTOR_down_genes))
+# %%
+enrichment_df, consensus_df = enrich_l2s2_single_set(CYTOR_up_genes, first=12)
+consensus_df.sort_values('pvalueDown', inplace=True)
+import matplotlib.pyplot as plt
+consensus_df.set_index('perturbation', inplace=True, drop=True)
+consensus_df['log10(-adj. down p-value)'] = -np.log10(consensus_df['adjPvalueDown'])
+consensus_df[:3][::-1].plot.barh( y='log10(-adj. down p-value)', color='black', legend=False, figsize=(10, 5), fontsize=16)
+#plt.legend(False)
+plt.xlabel('log10(-Adj. P-Value Down)', fontsize=16)
+plt.ylabel('Consensus Compound', fontsize=16)
+plt.savefig(fig_dir /'fig5a.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig5a.png', dpi=300, bbox_inches='tight')
+# %%
+camptothecin_row = enrichment_df[enrichment_df['perturbation'] == 'camptothecin']
+camptothecin_id = camptothecin_row['id'].values[0]
+n_camptothecin = camptothecin_row['nGeneIds'].values[0]
+camptothecin_term = ' '.join(camptothecin_row['term'].values[0].split('_')[:4]) + "\n" + ' '.join(camptothecin_row['term'].values[0].split('_')[4:])
 
-fig = go.Figure()
-vecs= [('all pairs',sigs_df['most_expr_genes'].values), ('top 10,000',sigs_df['most_expr_genes'].values[:10000]), ('top 1000',sigs_df['most_expr_genes'].values[:1000]), ('top 100',sigs_df['most_expr_genes'].values[:100])]
-for name, vec in vecs:
-    fig.add_trace(
-        go.Box(
-        mean=[np.mean(vec) for _, vec in vecs],
-        upperfence=[np.max(vec) for _, vec in vecs],
-        sd =[np.std(vec) for _, vec in vecs],
-        lowerfence=[np.min(vec) for _, vec in vecs],
-        median=[np.quantile(vec, .5) for _, vec in vecs],
-        q1=[np.quantile(vec, .25) for _, vec in vecs],
-        q3=[np.quantile(vec, .75) for _, vec in vecs],
-        x=[name for name, _ in vecs],
-        line=dict(color='black'),
-        boxpoints=False,
-        )
-    )
-fig.update_layout(
-    yaxis_title="top 500 most expressed genes", 
-    plot_bgcolor='white', 
-    yaxis_gridcolor='gray', 
-    width=1000, height=800)
+cytor_camptothecin_overlap = get_overlap(CYTOR_up_genes, camptothecin_id)
+# %%
 
-fig = add_p_value_annotation(fig, [[0, 1], [0, 2], [0, 3]])
+import matplotlib_venn as venn
+venn.venn2(subsets=(len(CYTOR_up_genes), n_camptothecin, len(cytor_camptothecin_overlap)), set_labels=('CYTOR KD Up Genes', camptothecin_term))
+plt.savefig(fig_dir /'fig5b.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig5b.png', dpi=300, bbox_inches='tight')
 
-fig.save('figures/fig5/5b.png')
+# %%
+cytor_camptothecin_overlap_userListId, shortId = enrichr_add_list(cytor_camptothecin_overlap, f'CYTOR KD Up Genes Overlap {camptothecin_term}')
+cytor_camptothecin_nature_nci = enrichr_get_top_results(cytor_camptothecin_overlap_userListId, 'NCI-Nature_2016', sleep=1)
+# %%
+cytor_camptothecin_nature_nci_plot = cytor_camptothecin_nature_nci[0:5]
+import seaborn as sns
+cytor_camptothecin_nature_nci_plot['-log10(adjusted_pvalue)'] = -np.log10(cytor_camptothecin_nature_nci_plot['adjusted_pvalue'])
 
-fig = go.Figure()
-vecs= [('all pairs',sigs_df['most_cited_genes_percent'].values), ('top 10,000',sigs_df['most_cited_genes_percent'].values[:10000]), ('top 1000',sigs_df['most_cited_genes_percent'].values[:1000]), ('top 100',sigs_df['most_cited_genes_percent'].values[:100])]
+# Plot
+plt.figure(figsize=(11, 3))
+sns.barplot(data=cytor_camptothecin_nature_nci_plot, x='-log10(adjusted_pvalue)', y='term', color='lightblue', width=.8)
 
-fig.add_traces(
-    go.Box(
-        mean=[np.mean(vec) for _, vec in vecs],
-        upperfence=[np.max(vec) for _, vec in vecs],
-        sd =[np.std(vec) for _, vec in vecs],
-        lowerfence=[np.min(vec) for _, vec in vecs],
-        median=[np.quantile(vec, .5) for _, vec in vecs],
-        q1=[np.quantile(vec, .25) for _, vec in vecs],
-        q3=[np.quantile(vec, .75) for _, vec in vecs],
-        x=[name for name, _ in vecs],
-        line=dict(color='black'),
-        boxpoints=False,
-    )
-)
-fig.update_layout(yaxis_title="top 500 cited genes", plot_bgcolor='white', yaxis_gridcolor='gray')
+# Add the term text inside the bars
+for index, row in cytor_camptothecin_nature_nci_plot.iterrows():
+    plt.text( 0.1, index, row['term'], color='black', ha='left', va='center')
+plt.yticks([])
+plt.xlabel("-log10(Adjusted P-value)")
+plt.ylabel("Term")
+plt.savefig(fig_dir /'fig5c.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig5c.png', dpi=300, bbox_inches='tight')
+# %%
 
-fig = add_p_value_annotation(fig, [[0, 1], [0, 2], [0, 3]])
+cytor_camptothecin_bioplanet = enrichr_get_top_results(cytor_camptothecin_overlap_userListId, 'BioPlanet_2019', sleep=1)
+# %%
+cytor_camptothecin_bioplanet_plot = cytor_camptothecin_bioplanet[0:5]
+cytor_camptothecin_bioplanet_plot['-log10(adjusted_pvalue)'] = -np.log10(cytor_camptothecin_bioplanet_plot['adjusted_pvalue'])
 
-fig.save('figures/fig5/5c.png')
+# Plot
+plt.figure(figsize=(11, 3))
+sns.barplot(data=cytor_camptothecin_bioplanet_plot, x='-log10(adjusted_pvalue)', y='term', color='lightblue', width=.8)
+
+# Add the term text inside the bars
+for index, row in cytor_camptothecin_bioplanet_plot.iterrows():
+    plt.text( 0.1, index, row['term'], color='black', ha='left', va='center')
+plt.yticks([])
+plt.xlabel("-log10(Adjusted P-value)")
+plt.ylabel("Term")
+plt.show()
+
+# %%

@@ -1,480 +1,247 @@
+# %%
 import os
-import pathlib
-import random
+import json
 import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
-from maayanlab_bioinformatics.enrichment import enrich_crisp
+from tqdm import tqdm
+import pyenrichr as pye
+import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
-import plotly.graph_objects as go
+import numpy as np
+from numba import njit, prange
+import pathlib
 
-from common import data_dir, maybe_tqdm
-
-fig_dir = pathlib.Path('figures/fig3')
+fig_dir = pathlib.Path('figures')/'fig3'
 fig_dir.mkdir(parents=True, exist_ok=True)
 
-colors = ['#E69F00', '#009E73', '#F0E442', '#0072B2', '#404040', '#D55E00', '#CC79A7', '#56B4E9', "#000000"]
-
-def read_gmt(path):
-    """
-    Reads a GMT file into a dictionary of gene sets.
-
-    Parameters:
-    path (str): The path to the GMT file.
-
-    Returns:
-    dict: A dictionary containing gene sets, where the keys are gene set names and the values are lists of genes.
-    """
-    gene_sets = {}
-    with open(path, 'r') as f:
-        for line in f:
-            fields = line.strip().split('\t')
-            gene_sets[fields[0]] = fields[2:]
-    return gene_sets
-
-# Read in the benchmarking libraries
-benchmarking_libs_kinase = {}
-for lib in os.listdir(data_dir/'benchmarking_data_kinase'):
-    benchmarking_libs_kinase[lib.split('.')[0]] = read_gmt(data_dir/f'benchmarking_data_kinase/{lib}')
-
-benchmarking_libs_tf = {}
-for lib in os.listdir(data_dir/'benchmarking_data_tf'):
-    benchmarking_libs_tf[lib.split('.')[0]] = read_gmt(data_dir/f'benchmarking_data_tf/{lib}')
-
-def getLibraryIter(libdict: dict):
-    """
-    Generator function that iterates over a library dictionary and yields the keys and values.
-
-    Parameters:
-    libdict (dict): The library dictionary to iterate over.
-
-    Yields:
-    tuple: A tuple containing the key and value from the dictionary.
-    """
-    for k,v in libdict.items():
-        if type(v) == list:
-            yield k, v
-        else:
-            yield k, list(v.keys())
-
-def enrich(gene_list: list, lib_json: dict, name: str): 
-    """
-    Perform enrichment analysis on a gene list using a given library.
-
-    Args:
-        gene_list (list): List of genes to be analyzed.
-        lib_json (dict): Dictionary representing the library containing gene sets.
-        name (str): Name of the analysis.
-
-    Returns:
-        pandas.DataFrame: DataFrame containing the enrichment results with columns ['Gene_Set', 'Term', 'Rank', 'Pvalue'].
-    """
-    gene_list = [x.upper() for x in gene_list]
-    all_terms = list(lib_json.keys())
-    termranks = []
-    enrich_res = enrich_crisp(gene_list, getLibraryIter(lib_json), 20000, False)
-    enrich_res = [[r[0], r[1].pvalue] if r[1].pvalue else [r[0], 1] for r in enrich_res]
-    sorted_res = sorted(enrich_res, key=lambda x: x[1])
-
-    for i in range(len(sorted_res)): 
-        termranks.append([name, sorted_res[i][0], i, sorted_res[i][1]])
-    i = len(sorted_res)
-    for t in set(all_terms).difference([x[1] for x in termranks]): 
-        i+=1
-        termranks.append([name, t, i, 1])
-    return pd.DataFrame(termranks, columns=['Gene_Set', 'Term', 'Rank', 'Pvalue'])
+@njit(parallel=True)
+def get_p_value_list(fisher, contingency_tables):
+    num_tests = contingency_tables.shape[0]
+    results = np.empty(num_tests, dtype=np.float64)
+    for i in prange(num_tests):
+        a, b, c, d = contingency_tables[i]
+        p_value = fisher.get_p_value(a, b, c, d)
+        results[i] = p_value
+    return results
 
 
-def rank_vecs_kinase(consensus: dict):
-    """
-    Rank the vectors based on the consensus dictionary.
+with open('../data/counts_genes.json') as f:
+    counts = json.load(f)
+    
+with open('../data/counts_perts.json') as f:
+    counts_perts = json.load(f)
 
-    Parameters:
-    - consensus (dict): A dictionary containing the consensus data.
+counts.update(counts_perts)
 
-    Returns:
-    - rank_vecs_consensus (dict): A dictionary containing the ranked vectors based on the consensus data.
-    """
-    rank_vecs_consensus = {}
-    for name in maybe_tqdm(benchmarking_libs_kinase):  
-        bench_lib = benchmarking_libs_kinase[name]
-        results = []
-        for term in maybe_tqdm(bench_lib):
-            try:
-                enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-                if '_' in term:
-                    kinase = term.split('_')[0]
-                else:
-                    kinase = term
-                
-                if '|' in kinase:
-                    kinases = kinase.split('|')
-                    for k in kinases:
-                        ranked = enrichment[enrichment['Term'] == k]
-                        if len(ranked) > 0:
-                            results.append(ranked)
-                elif '.' in kinase:
-                    kinases = kinase.split('.')
-                    for k in kinases:
-                        ranked = enrichment[enrichment['Term'] == k]
-                        if len(ranked) > 0:
-                            results.append(ranked)
-                else:
-                    ranked = enrichment[enrichment['Term'] == kinase]
-                    if len(ranked) > 0:
-                        results.append(ranked)
-            except Exception as e:
-                print(e)
-                print(f"Error with {term}")
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        rank_vecs_consensus[name] = list(consensus_res_df['ScaledRank'])
+def map_term_to_count(term):
+    if term in counts:
+        return counts[term]
+    elif term.upper() in counts:
+        return counts[term.upper()]
+    elif term.lower() in counts:
+        return counts[term.lower()]
+    elif term.capitalize() in counts:
+        return counts[term.capitalize()]
+    else:
+        0
 
-    rank_vecs_consensus['random'] = [random.random() for _ in range(len(consensus_res_df['ScaledRank']))]
 
-    return rank_vecs_consensus
+fisher = pye.enrichment.FastFisher(44000)
+def compute_consensus_stats(enrich_df):
+    # Ensure 'is_up' and 'is_down' columns exist
+    enrich_df = enrich_df.assign(
+        is_up=enrich_df['term'].str.contains(" up"),
+        is_down=enrich_df['term'].str.contains(" down")
+    )
 
-def rank_vecs_tf(consensus: dict):
-    """
-    Rank the vectors based on the consensus dictionary.
+    # Filter for 'pert' values in counts
+    enrich_df = enrich_df[enrich_df['pert'].isin(counts)]
+    
+    # Precompute total_n
+    enrich_df['total_n'] = enrich_df['pert'].map(counts)
 
-    Parameters:
-    - consensus (dict): A dictionary containing the consensus data.
+    # Group by 'pert' and compute aggregates
+    grouped = enrich_df.groupby('pert').agg(
+        a_up=('is_up', 'sum'),
+        b_up=('is_down', 'sum'),
+        total_n=('total_n', 'first')  # All rows in the same group have the same total_n
+    ).reset_index()
 
-    Returns:
-    - rank_vecs_consensus (dict): A dictionary containing the ranked vectors based on the consensus data.
-    """
+    # Compute additional columns for Fisher's test
+    grouped['a_down'] = (grouped['total_n'] // 2) - grouped['a_up']
+    grouped['b_down'] = (grouped['total_n'] // 2) - grouped['b_up']
+
+    # Create contingency tables
+    contingency_tables = grouped[['a_up', 'b_up', 'a_down', 'b_down']].to_numpy(dtype=np.int64)
+
+    # Compute p-values using the FastFisher instance
+    p_values_up = get_p_value_list(fisher, contingency_tables)
+    p_values_down = get_p_value_list(
+        fisher, contingency_tables[:, [1, 0, 3, 2]]  # Swap a/b and c/d for down test
+    )
+
+    # Append results to the DataFrame
+    grouped['pvalue_up'] = p_values_up
+    grouped['pvalue_dn'] = p_values_down
+
+    # Return the final DataFrame
+    return grouped[['pert', 'pvalue_up', 'pvalue_dn']]
+
         
-    rank_vecs_consensus = {}
-    for name in maybe_tqdm(benchmarking_libs_tf):  
-        bench_lib = benchmarking_libs_tf[name]
-        results = []
-        for term in maybe_tqdm(bench_lib):
-            try:
-                enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-                if '_' in term:
-                    tf = term.split('_')[0]
-                else:
-                    tf = term.split(' ')[0]
-                ranked = enrichment[enrichment['Term'] == tf]
-                if len(ranked) > 0:
-                    results.append(ranked)
-            except Exception as e:
-                print(e)
-                print(f"Error with {term}")
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        rank_vecs_consensus[name] = list(consensus_res_df['ScaledRank'])
 
-    return rank_vecs_consensus
+def compute_consensus_dir(dir, positive):
+    curr_files = os.listdir(dir)
+    ranking_dict_up = {
+        "pvalue_up_100": {"scores": [], "labels": []},
+        "pvalue_up_500": {"scores": [], "labels": []},
+        "pvalue_up_1000": {"scores": [], "labels": []},
+        "pvalue_up_5000": {"scores": [], "labels": []},
+        "pvalue_up_10000": {"scores": [], "labels": []},
+        "pvalue_up_20000": {"scores": [], "labels": []},
+    }
+
+    ranking_dict_dn = {
+        "pvalue_dn_100": {"scores": [], "labels": []},
+        "pvalue_dn_500": {"scores": [], "labels": []},
+        "pvalue_dn_1000": {"scores": [], "labels": []},
+        "pvalue_dn_5000": {"scores": [], "labels": []},
+        "pvalue_dn_10000": {"scores": [], "labels": []},
+        "pvalue_dn_20000": {"scores": [], "labels": []},
+    }
 
 
-def create_roc_vals_kinase(consensus: dict):
-    """
-    Create ROC values for benchmarking.
-
-    Args:
-        consensus (dict): A dictionary containing the consensus data.
-
-    Returns:
-        dict: A dictionary containing the ROC values.
-    """
-    roc_vals = {}
-    for name in maybe_tqdm(benchmarking_libs_kinase):  
-        bench_lib = benchmarking_libs_kinase[name]
-        results = []
-        misses = []
-        for term in maybe_tqdm(bench_lib):
-            try:
-                enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-                if '_' in term:
-                    kinase = term.split('_')[0]
-                else:
-                    kinase = term
+    for file in tqdm(curr_files): 
+        enrich_df = pd.read_csv(f'{dir}/{file}', sep='\t', index_col=0)
+        enrich_df['pert'] = enrich_df['term'].map(lambda term: term.split('_')[4].replace(' up', '').replace(' down', ''))
+        enrich_df = enrich_df[~enrich_df['term'].str.contains('BRDN')]
+        for topn in [100, 500, 1000, 5000, 10000, 20000]:
+            consensus_table = compute_consensus_stats(enrich_df[:topn])
+            consensus_table['hit'] = consensus_table['pert'].map(positive)
+            if '_up' in file:
+                consensus_table.sort_values('pvalue_up', inplace=True)
+                consensus_table.reset_index(inplace=True, drop=True)
+                consensus_table['scores'] = 1 -  ((consensus_table.index.values + 1) / len(consensus_table))
+                ranking_dict_up[f'pvalue_up_{topn}']["labels"].extend(consensus_table['hit'].values)
+                ranking_dict_up[f'pvalue_up_{topn}']["scores"].extend(consensus_table['scores'].values)
                 
-                if '|' in kinase:
-                    kinases = kinase.split('|')
-                    for k in kinases:
-                        ranked = enrichment[enrichment['Term'] == k]
-                        if len(ranked) > 0:
-                            results.append(ranked)
-                        rankedmiss = enrichment[enrichment['Term'] != k]
-                        if len(ranked) > 0:
-                            misses.append(rankedmiss)
-
-                elif '.' in kinase:
-                    kinases = kinase.split('.')
-                    for k in kinases:
-                        ranked = enrichment[enrichment['Term'] == k]
-                        if len(ranked) > 0:
-                            results.append(ranked)
-                        rankedmiss = enrichment[enrichment['Term'] != k]
-                        if len(rankedmiss) > 0:
-                            misses.append(rankedmiss)
-                else:
-                    ranked = enrichment[enrichment['Term'] == kinase]
-                    if len(ranked) > 0:
-                        results.append(ranked)
-                    rankedmiss = enrichment[enrichment['Term'] != kinase]
-                    if len(rankedmiss) > 0:
-                            misses.append(rankedmiss)
-            except Exception as e:
-                print(e)
-                print(f"Error with {term}")
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        consensus_res_df_miss = pd.concat(misses, axis=0)
-        consensus_res_df_miss['ScaledRank'] = (consensus_res_df_miss['Rank']) / len(consensus)
-        roc_vals[name] = {}
-        roc_vals[name]['tp'] = list(consensus_res_df['ScaledRank'])
-        roc_vals[name]['fp'] = list(consensus_res_df_miss['ScaledRank'])
-
-    return roc_vals
-
-
-def sig_vecs_kinase(consensus: dict) -> dict:
-    """
-    Generate ranked vectors for each benchmarking library based on the consensus data.
-
-    Args:
-        consensus (dict): A dictionary containing the consensus data.
-
-    Returns:
-        dict: A dictionary containing the ranked vectors for each benchmarking library.
-    """
-        
-    rank_vecs_consensus = {}
-    for name in maybe_tqdm(benchmarking_libs_kinase):  
-        bench_lib = benchmarking_libs_kinase[name]
-        results = []
-        for term in maybe_tqdm(bench_lib):
-            enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-            if '_' in term:
-                kinase = term.split('_')[0]
-            else:
-                kinase = term
+            if '_down' in file:
+                consensus_table.sort_values('pvalue_dn', inplace=True)
+                consensus_table.reset_index(inplace=True, drop=True)
+                consensus_table['scores'] = 1 -  ((consensus_table.index.values + 1) / len(consensus_table))
+                ranking_dict_dn[f'pvalue_dn_{topn}']["labels"].extend(list(consensus_table['hit'].values))
+                ranking_dict_dn[f'pvalue_dn_{topn}']["scores"].extend(list(consensus_table['scores'].values))
             
-            if '|' in kinase:
-                kinases = kinase.split('|')
-                for k in kinases:
-                    ranked = enrichment[enrichment['Term'] == k]
-                    if len(ranked) > 0:
-                        results.append(ranked)
-            elif '.' in kinase:
-                kinases = kinase.split('.')
-                for k in kinases:
-                    ranked = enrichment[enrichment['Term'] == k]
-                    if len(ranked) > 0:
-                        results.append(ranked)
+    return ranking_dict_up, ranking_dict_dn
+
+# load a gene set library
+mean_sig_crispr = {}
+mean_sig_chem = {}
+with open('data/LINCS_L1000_Chem_Pert_Consensus_Sigs.txt') as f:
+    lines = f.readlines()
+    for line in lines:
+        line = line.strip().split('\t')
+        mean_sig_chem[line[0]] = set(line[2:])
+
+with open('data/LINCS_L1000_CRISPR_KO_Consensus_Sigs.txt') as f:
+    lines = f.readlines()
+    for line in lines:
+        line = line.strip().split('\t')
+        mean_sig_chem[line[0]] = set(line[2:])
+
+
+def compute_mean_sig_raninking(gmt_path, positive):
+    ranking_dict_mean_sigs_up = {
+        'p-value': {'scores': [], 'labels': []},
+        'count': {'scores': [], 'labels': []}
+    }
+
+    ranking_dict_mean_sigs_dn = {
+        'p-value': {'scores': [], 'labels': []},
+        'count': {'scores': [], 'labels': []}
+    }
+
+    sigs = {}
+
+    with open(gmt_path) as f:
+        lines = f.readlines()
+        for line in lines:
+            line = line.strip().split('\t')
+            sigs[('_').join(line[0].split())] = line[2:]
+        
+    for sig in tqdm(sigs):
+        rank_df = pye.enrichment.fisher([g.upper() for g in sigs[sig]], mean_sig_chem, fisher=fisher)
+        rank_df = rank_df[(rank_df['p-value'] < 0.01)]
+        rank_df['count'] = rank_df['term'].map(lambda x: map_term_to_count(x.split()[0]))
+        for metric in ranking_dict_mean_sigs_up.keys():
+            if 'p-value' in metric:
+                rank_df.sort_values(by=metric, inplace=True, ascending=True)
             else:
-                ranked = enrichment[enrichment['Term'] == kinase]
-                if len(ranked) > 0:
-                    results.append(ranked)
+                rank_df.sort_values(by=metric, inplace=True, ascending=False)
+            rank_df.reset_index(drop=True, inplace=True)
+            if "up" in sig:
+                rank_df['labels'] = [1 if positive(x.split()[0].lower()) and x.split()[1].upper() == "UP" else 0 for x in rank_df['term']]
+                rank_df['scores'] = 1 -  ((rank_df.index.values) / len(rank_df))
+                ranking_dict_mean_sigs_up[metric]['scores'].extend(list(rank_df['scores']))
+                ranking_dict_mean_sigs_up[metric]['labels'].extend(list(rank_df['labels']))
+            elif "down" in sig:
+                rank_df['labels'] = [1 if positive(x.split()[0].lower()) and x.split()[1].upper() == "DOWN" else 0 for x in rank_df['term']]
+                rank_df['scores'] = 1 -  ((rank_df.index.values) / len(rank_df))
+                ranking_dict_mean_sigs_dn[metric]['scores'].extend(list(rank_df['scores']))
+                ranking_dict_mean_sigs_dn[metric]['labels'].extend(list(rank_df['labels']))
+    return ranking_dict_mean_sigs_up, ranking_dict_mean_sigs_dn
 
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        rank_vecs_consensus[name] = list(consensus_res_df['Pvalue'])
-
-    rank_vecs_consensus['random'] = [random.random() for _ in range(len(consensus_res_df['ScaledRank']))]
-    return rank_vecs_consensus
-
-def sig_vecs_tf(consensus: dict) -> dict:
-    """
-    Generate ranked vectors for each benchmarking library based on the consensus data.
-
-    Args:
-        consensus (dict): A dictionary containing the consensus data.
-
-    Returns:
-        dict: A dictionary containing the ranked vectors for each benchmarking library.
-    """
-    rank_vecs_consensus = {}
-    for name in maybe_tqdm(benchmarking_libs_tf):  
-        bench_lib = benchmarking_libs_tf[name]
-        results = []
-        for term in maybe_tqdm(bench_lib):
-            try:
-                enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-                if '_' in term:
-                    tf = term.split('_')[0]
-                else:
-                    tf = term.split(' ')[0]
-                ranked = enrichment[enrichment['Term'] == tf]
-                if len(ranked) > 0:
-                    results.append(ranked)
-            except Exception as e:
-                print(e)
-                print(f"Error with {term}")
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        rank_vecs_consensus[name] = list(consensus_res_df['Pvalue'])
-
-    rank_vecs_consensus['random'] = [random.random() for _ in range(len(consensus_res_df['Pvalue']))]
-
-    return rank_vecs_consensus
-
-def create_roc_vals_tf(consensus: dict) -> dict:
-    """
-    Create ROC values for benchmarking.
-
-    Args:
-        consensus (dict): A dictionary containing the consensus data.
-
-    Returns:
-        dict: A dictionary containing the ROC values.
-    """
-
-    roc_vals = {}
-    for name in maybe_tqdm(benchmarking_libs_tf):  
-        bench_lib = benchmarking_libs_tf[name]
-        results = []
-        misses = []
-        for term in maybe_tqdm(bench_lib):
-            try:
-                enrichment = enrich(bench_lib[term], consensus, f"{term}:consensus")
-                if '_' in term:
-                    tf = term.split('_')[0]
-                else:
-                    tf = term.split(' ')[0]
-                ranked = enrichment[enrichment['Term'] == tf]
-                if len(ranked) > 0:
-                    results.append(ranked)
-                rankedMisses = enrichment[enrichment['Term'] != tf]
-                if len(rankedMisses) > 0:
-                    misses.append(rankedMisses)
-            except Exception as e:
-                print(e)
-                print(f"Error with {term}")
-        consensus_res_df = pd.concat(results, axis=0)
-        consensus_res_df['ScaledRank'] = (consensus_res_df['Rank']) / len(consensus)
-        consensus_res_df_misses = pd.concat(misses, axis=0)
-        consensus_res_df_misses['ScaledRank'] = (consensus_res_df_misses['Rank']) / len(consensus)
-        roc_vals[name] = {}
-        roc_vals[name]['tp'] = list(consensus_res_df['ScaledRank'])
-        roc_vals[name]['fp'] = list(consensus_res_df_misses['ScaledRank'])
-
-    return roc_vals
-
-
-def bootstrap_roc_curve(ones: list, zeros: list, n: int):
-    """
-    Calculate the mean area under the ROC curve (AUC) and the mean true positive rate (TPR)
-    using bootstrap resampling.
-
-    Parameters:
-    ones (array-like): The positive class labels.
-    zeros (array-like): The negative class labels.
-    n (int): The number of bootstrap iterations.
-
-    Returns:
-    dict: A dictionary containing the mean AUC and the mean TPR.
-
-    """
-    base_fpr = np.linspace(0, 1, 50)
-    size_group1 = len(ones)
-    sum_auc = 0
-    tprs = []
-    for i in range(n):
-        zeros_sampled = np.random.choice(zeros, size=size_group1, replace=True)
-        fpr, tpr, _ = roc_curve(np.concatenate([np.ones_like(ones), np.zeros_like(zeros_sampled)]),
-                                np.concatenate([ones, zeros_sampled]), drop_intermediate=False)
-        roc_auc = auc(fpr, tpr)
-        sum_auc += roc_auc
-        tpr = np.interp(base_fpr, fpr, tpr)
-        tpr[0] = 0.0
-        tprs.append(list(tpr))
-
-    auc_mean = sum_auc / n
-
-    tpr_mean = np.mean(np.array(tprs), axis=0)
-    return {'auc': auc_mean, 'approx': tpr_mean}
-
-
-def plot_roc_curve(roc_vals: dict, name: str, n_bootstrap=5000):
-    """
-    Plots the ROC curve for the given ROC values.
-
-    Parameters:
-    roc_vals (dict): Dictionary containing the ROC values for different libraries.
-    name (str): name of output figure
-    n_bootstrap (int): Number of bootstrap iterations for calculating confidence intervals. Default is 5000.
-
-    Returns:
-    None
-    """
-
-    base_fpr = np.linspace(0, 1, 50)
-
-    lib_curves = {}
-    for lib in maybe_tqdm(roc_vals):
-        bootstrapped_res = bootstrap_roc_curve(1 - np.array(roc_vals[lib]['tp']), 1 - np.array(roc_vals[lib]['fp']), n_bootstrap)
-        print(lib, bootstrapped_res['auc'])
-        lib_curves[lib] =bootstrapped_res
-
-    # Plotting
-    fig = plt.figure(figsize=(8, 6))
-    for i, lib in enumerate(list(lib_curves)):
-        plt.plot(base_fpr, lib_curves[lib]['approx'], label=f"{lib} AUC: {np.round(lib_curves[lib]['auc'], 3)}", color=colors[i])
-
-    plt.plot([0, 1], [0, 1], color='black', linestyle='--')
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.legend()
-    plt.savefig(fig_dir/f'{name}.png', dpi=300)
-
-def make_boxplot(ranked_vectors: dict, name: str, ylabel='Scaled Rank'):
-    """
-    Create a boxplot from ranked vectors.
-
-    Parameters:
-    ranked_vectors (dict): A dictionary containing ranked vectors.
-    name (str): The name of the boxplot.
-    ylabel (str, optional): The label for the y-axis. Defaults to 'Scaled Rank'.
-
-    Returns:
-    None
-    """
-    bxplt_vecs = []
-    for i, gs in enumerate(ranked_vectors):
-        bxplt_vecs.append((gs, np.mean(ranked_vectors[gs]), colors[i]))
-
-    fig = go.Figure()
-    bxplt_vecs_sorted = list(sorted(bxplt_vecs, key=lambda x: x[1]))
-    for (gs, _, color) in bxplt_vecs_sorted:
-        fig.add_trace(
-            go.Box(
-                y=ranked_vectors[gs],
-                name=gs.split('_')[0].replace('single', 'GEO'),
-                fillcolor=color,
-                line=dict(color='black')
-            )
-        )
-    if ylabel == 'P-value':
-        fig.add_hline(y=.05, line_width=1, line_dash="dash", line_color="black")
-    fig.update_layout(yaxis_title=ylabel, plot_bgcolor='white', yaxis_gridcolor='gray')
-    # fig.show()
-    fig.write_image(fig_dir/f'{name}.pdf')
-    fig.write_image(fig_dir/f'{name}.png')
-
-
-
-if __name__ == "__main__":
-
-    kinase_gmt = read_gmt(data_dir/'consensus_kinase_clean.gmt')
-    kinase_sig_vecs = sig_vecs_kinase(kinase_gmt)
-    make_boxplot(kinase_sig_vecs, '3f', ylabel='P-value')
-    kinase_rank_vecs = rank_vecs_kinase(kinase_gmt)
-    make_boxplot(kinase_rank_vecs, '3e', ylabel='Scaled Rank')
-    kinase_roc_vals = create_roc_vals_kinase(kinase_gmt)
-    plot_roc_curve(kinase_roc_vals, '3d')
-
-    tf_gmt = read_gmt(data_dir/'consensus_tf_clean.gmt')
-    tf_sig_vecs = sig_vecs_tf(tf_gmt)
-    make_boxplot(tf_sig_vecs, '3c', ylabel='P-value')
-    tf_scaled_rank_vecs = rank_vecs_tf(tf_gmt)
-    make_boxplot(tf_scaled_rank_vecs, '3b', ylabel='Scaled Rank')
-    tf_roc_vals = create_roc_vals_tf(tf_gmt)
-    plot_roc_curve(tf_roc_vals, '3a')
+def plot_ranking_dicts(ranking_dicts, save=None):
+    plt.figure(figsize=(10, 8))
+    for ranking_dict_name in ranking_dicts:
+        ranking_dict = ranking_dicts[ranking_dict_name]
+        for m in ranking_dict.keys():  
+            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
+            roc_auc = auc(fpr, tpr)
+            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m} (AUC = {roc_auc:.2f})')
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            plt.legend(loc='lower right')
+            plt.grid(alpha=0.3)
+    plt.plot([0, 1], [0, 1], color='gray', linestyle='--', label='Random')
+    if save:
+        plt.savefig(save, dpi=300, bbox_inches='tight')
+    plt.show()
     
     
+#%%
 
+dex_ranking_dict_up, dex_ranking_dict_dn = compute_consensus_dir('data/dex_out_enrich', lambda term: 'dexamethasone' in term)
+#%%
+dex_mean_sig_ranking_up, dex_mean_sig_ranking_dn = compute_mean_sig_raninking('data/dex_gen3va.gmt', lambda x: 'dexamethasone' in x)
+# %%
+
+## A & B (Dexamethasone)
+plot_ranking_dicts({'Top-N Up': dex_ranking_dict_up,  'Mean CD Sigs Up': dex_mean_sig_ranking_up}, fig_dir / 'fig3a.pdf')
+plot_ranking_dicts({'Top-N Up': dex_ranking_dict_up,  'Mean CD Sigs Up': dex_mean_sig_ranking_up}, fig_dir / 'fig3a.png')
+
+plot_ranking_dicts({'Top-N Down': dex_ranking_dict_dn,  'Mean CD Sigs Down': dex_mean_sig_ranking_dn}, fig_dir / 'fig3b.png')
+plot_ranking_dicts({'Top-N Down': dex_ranking_dict_dn,  'Mean CD Sigs Down': dex_mean_sig_ranking_dn}, fig_dir / 'fig3b.pdf')
+
+# %%
+thiazolidinedione_ranking_dict_up, thiazolidinedione_ranking_dict_dn = compute_consensus_dir('data/thiazolidinedione_out_enrich', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
+thiazolidinedione_mean_sig_ranking_up, thiazolidinedione_mean_sig_ranking_dn = compute_mean_sig_raninking('data/thiazolidinedione_gen3va.gmt', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
+
+#%%
+## C & D (Thiazolidinedione)
+plot_ranking_dicts({'Top-N Up': thiazolidinedione_ranking_dict_up,  'Mean CD Sigs Up': thiazolidinedione_mean_sig_ranking_up}, fig_dir / 'fig3c.pdf')
+plot_ranking_dicts({'Top-N Up': thiazolidinedione_ranking_dict_up,  'Mean CD Sigs Up': thiazolidinedione_mean_sig_ranking_up}, fig_dir / 'fig3c.png')
+
+plot_ranking_dicts({'Top-N Down': thiazolidinedione_ranking_dict_dn,  'Mean CD Sigs Down': thiazolidinedione_mean_sig_ranking_dn}, fig_dir / 'fig3d.png')
+plot_ranking_dicts({'Top-N Down': thiazolidinedione_ranking_dict_dn,  'Mean CD Sigs Down': thiazolidinedione_mean_sig_ranking_dn}, fig_dir / 'fig3d.pdf')
+# %%
+
+imatinib_ranking_dict_up, imatinib_ranking_dict_dn = compute_consensus_dir('data/imatinib_out_enrich', lambda term: 'imatinib' in term)
+imatinib_mean_sig_ranking_up, imatinib_mean_sig_ranking_dn = compute_mean_sig_raninking('data/imatinib_gen3va.gmt', lambda x: 'imatinib' in x)
+
+#%%
+## E & F (Imatinib)
+plot_ranking_dicts({'Top-N Up': imatinib_ranking_dict_up,  'Mean CD Sigs Up': imatinib_mean_sig_ranking_up}, fig_dir / 'fig3e.pdf')
+plot_ranking_dicts({'Top-N Up': imatinib_ranking_dict_up,  'Mean CD Sigs Up': imatinib_mean_sig_ranking_up}, fig_dir / 'fig3e.png')
+
+plot_ranking_dicts({'Top-N Down': imatinib_ranking_dict_dn,  'Mean CD Sigs Down': imatinib_mean_sig_ranking_dn}, fig_dir / 'fig3f.png')
+plot_ranking_dicts({'Top-N Down': imatinib_ranking_dict_dn,  'Mean CD Sigs Down': imatinib_mean_sig_ranking_dn}, fig_dir / 'fig3f.pdf')
+# %%
