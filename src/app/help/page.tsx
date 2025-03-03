@@ -2,108 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { FaCopy } from "react-icons/fa";
-
-const codeExample = `import requests
-import json
-
-url = "https://l2s2.maayanlab.cloud/graphql"
-
-def enrich_l2s2(geneset: list):
-    query = {
-    "operationName": "EnrichmentQuery",
-    "variables": {
-        "filterTerm": " ",
-        "offset": 0,
-        "first": 12,
-        "filterFda": False,
-        "sortBy": "pvalue",
-        "filterKo": False,
-        "genes": geneset,
-    },
-    "query": """query EnrichmentQuery(
-                    $genes: [String]!
-                    $filterTerm: String = ""
-                    $offset: Int = 0
-                    $first: Int = 10
-                    $filterFda: Boolean = false
-                    $sortBy: String = ""
-                    $filterKo: Boolean = false
-                    ) {
-                    currentBackground {
-                        enrich(
-                        genes: $genes
-                        filterTerm: $filterTerm
-                        offset: $offset
-                        first: $first
-                        filterFda: $filterFda
-                        sortby: $sortBy
-                        filterKo: $filterKo
-                        ) {
-                        nodes {
-                            geneSetHash
-                            pvalue
-                            adjPvalue
-                            oddsRatio
-                            nOverlap
-                            geneSets {
-                            nodes {
-                                id
-                                term
-                                description
-                                nGeneIds
-                                geneSetFdaCountsById {
-                                nodes {
-                                    approved
-                                    count
-                                    __typename
-                                }
-                                __typename
-                                }
-                                __typename
-                            }
-                            totalCount
-                            __typename
-                            }
-                            __typename
-                        }
-                        totalCount
-                        consensusCount
-                        consensus {
-                            drug
-                            oddsRatio
-                            pvalue
-                            adjPvalue
-                            approved
-                            countSignificant
-                            countInsignificant
-                            countUpSignificant
-                            pvalueUp
-                            adjPvalueUp
-                            oddsRatioUp
-                            pvalueDown
-                            adjPvalueDown
-                            oddsRatioDown
-                            __typename
-                        }
-                        __typename
-                        }
-                        __typename
-                    }
-                    }
-                    """,
-    }
-
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.post(url, data=json.dumps(query), headers=headers)
-
-    if response.status_code == 200:
-        res = response.json()
-        return res
-`;
+import { singleGeneEnrich, upDownGeneSetEnrich, overlap, upDownOverlap, validGenes } from "./examples";
 
 export default function UserManual() {
   return (
@@ -280,13 +179,57 @@ export default function UserManual() {
             className="border rounded-lg mx-auto my-4"
           />
           <p>
-          For example, enrichment analysis queries can be performed in Python against all L2S2 signatures using the requests library as follows:
+          For example, single gene set enrichment analysis queries can be performed in Python against all L2S2 signatures using the requests library as follows:
           </p>
           <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
-            <button className="float-right" onClick={() => navigator.clipboard.writeText(codeExample)}><FaCopy/></button>
+            <button className="float-right" onClick={() => navigator.clipboard.writeText(singleGeneEnrich)}><FaCopy/></button>
             <pre>
               <code>
-                {codeExample}
+                {singleGeneEnrich}
+              </code>
+            </pre>
+          </div>
+          <br />
+          <p>
+          Additionally, up- and down-gene set enrichment analysis queries can be performed in Python against all L2S2 signatures using the requests library as follows:
+          </p>
+          <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
+            <button className="float-right" onClick={() => navigator.clipboard.writeText(upDownGeneSetEnrich)}><FaCopy/></button>
+            <pre>
+              <code>
+                {upDownGeneSetEnrich}
+              </code>
+            </pre>
+          </div>
+          <br />
+          <p>
+          Overlapping genes can be retrieved from either the single or up- and down-gene set search results using the L2S2 gene set ids provided in the returned enrichment tables:
+          </p>
+          <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
+            <button className="float-right" onClick={() => navigator.clipboard.writeText(overlap)}><FaCopy/></button>
+            <pre>
+              <code>
+                {overlap}
+              </code>
+            </pre>
+          </div>
+          <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
+            <button className="float-right" onClick={() => navigator.clipboard.writeText(upDownOverlap)}><FaCopy/></button>
+            <pre>
+              <code>
+                {upDownOverlap}
+              </code>
+            </pre>
+          </div>
+          <br />
+          <p>
+          Due to the nature of the L1000 assay, the L2S2 background includes 11,335 protein-coding genes. To find the overlap of a user gene set and the L2S2 background, the following query can be used to retrieve the overlap and converted symbols:
+          </p>
+          <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
+            <button className="float-right" onClick={() => navigator.clipboard.writeText(validGenes)}><FaCopy/></button>
+            <pre>
+              <code>
+                {validGenes}
               </code>
             </pre>
           </div>
