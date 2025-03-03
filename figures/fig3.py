@@ -91,21 +91,25 @@ def compute_consensus_stats(enrich_df):
 def compute_consensus_dir(dir, positive):
     curr_files = os.listdir(dir)
     ranking_dict_up = {
-        "pvalue_up_100": {"scores": [], "labels": []},
         "pvalue_up_500": {"scores": [], "labels": []},
         "pvalue_up_1000": {"scores": [], "labels": []},
         "pvalue_up_5000": {"scores": [], "labels": []},
         "pvalue_up_10000": {"scores": [], "labels": []},
         "pvalue_up_20000": {"scores": [], "labels": []},
+        "pvalue_up_40000": {"scores": [], "labels": []},
+        "pvalue_up_50000": {"scores": [], "labels": []},
+        "pvalue_up_75000": {"scores": [], "labels": []},
     }
 
     ranking_dict_dn = {
-        "pvalue_dn_100": {"scores": [], "labels": []},
         "pvalue_dn_500": {"scores": [], "labels": []},
         "pvalue_dn_1000": {"scores": [], "labels": []},
         "pvalue_dn_5000": {"scores": [], "labels": []},
         "pvalue_dn_10000": {"scores": [], "labels": []},
         "pvalue_dn_20000": {"scores": [], "labels": []},
+        "pvalue_dn_40000": {"scores": [], "labels": []},
+        "pvalue_dn_50000": {"scores": [], "labels": []},
+        "pvalue_dn_75000": {"scores": [], "labels": []},
     }
 
 
@@ -113,7 +117,7 @@ def compute_consensus_dir(dir, positive):
         enrich_df = pd.read_csv(f'{dir}/{file}', sep='\t', index_col=0)
         enrich_df['pert'] = enrich_df['term'].map(lambda term: term.split('_')[4].replace(' up', '').replace(' down', ''))
         enrich_df = enrich_df[~enrich_df['term'].str.contains('BRDN')]
-        for topn in [100, 500, 1000, 5000, 10000, 20000]:
+        for topn in [int(k.split('_')[-1]) for k in ranking_dict_up.keys()]:
             consensus_table = compute_consensus_stats(enrich_df[:topn])
             consensus_table['hit'] = consensus_table['pert'].map(positive)
             if '_up' in file:
@@ -151,12 +155,10 @@ with open('data/LINCS_L1000_CRISPR_KO_Consensus_Sigs.txt') as f:
 def compute_mean_sig_raninking(gmt_path, positive):
     ranking_dict_mean_sigs_up = {
         'p-value': {'scores': [], 'labels': []},
-        'count': {'scores': [], 'labels': []}
     }
 
     ranking_dict_mean_sigs_dn = {
         'p-value': {'scores': [], 'labels': []},
-        'count': {'scores': [], 'labels': []}
     }
 
     sigs = {}
@@ -189,24 +191,64 @@ def compute_mean_sig_raninking(gmt_path, positive):
                 ranking_dict_mean_sigs_dn[metric]['labels'].extend(list(rank_df['labels']))
     return ranking_dict_mean_sigs_up, ranking_dict_mean_sigs_dn
 
-def plot_ranking_dicts(ranking_dicts, save=None):
+def plot_ranking_dicts(ranking_dicts, save=None, show=True):
     plt.figure(figsize=(10, 8))
     for ranking_dict_name in ranking_dicts:
         ranking_dict = ranking_dicts[ranking_dict_name]
         for m in ranking_dict.keys():  
             fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
             roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m} (AUC = {roc_auc:.2f})')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.legend(loc='lower right')
-            plt.grid(alpha=0.3)
+            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m.replace("pvalue_up_", "pvalue up (n=").replace("pvalue_dn_", "pvalue down (n=")}) (AUC = {roc_auc:.2f})')
+    plt.xlabel('False Positive Rate', fontsize=16)
+    plt.ylabel('True Positive Rate', fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.legend(loc='lower right')
+    plt.grid(alpha=0.3)
     plt.plot([0, 1], [0, 1], color='gray', linestyle='--', label='Random')
     if save:
         plt.savefig(save, dpi=300, bbox_inches='tight')
-    plt.show()
+    if show:
+        plt.show()
+    plt.clf()
     
+def plot_n_auc(ranking_dicts, save=None, show=True):
+    drug_aucs_n = {}
+
+    for ranking_dict_name in ranking_dicts:
+        ranking_dict = ranking_dicts[ranking_dict_name]
+
+        if ranking_dict_name not in drug_aucs_n:
+            drug_aucs_n[ranking_dict_name] = {"aucs": [], "ns": []}
+
+        for m in ranking_dict.keys():  
+            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
+            roc_auc = auc(fpr, tpr)
+            drug_aucs_n[ranking_dict_name]["aucs"].append(roc_auc)
+            drug_aucs_n[ranking_dict_name]["ns"].append(int(m.split('_')[-1]))
+
+    plt.figure(figsize=(10, 8))
+    for drug in drug_aucs_n:
+        plt.plot(
+            drug_aucs_n[drug]["ns"], 
+            drug_aucs_n[drug]["aucs"], 
+            lw=1,  
+            marker='o',
+            markersize=5,
+            label=f'{drug}'
+        )
+
+    plt.xlabel("N")
+    plt.ylabel("AUC")
+    plt.legend()
     
+    if save:
+        plt.savefig(save, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    
+    plt.clf()
+
 #%%
 
 dex_ranking_dict_up, dex_ranking_dict_dn = compute_consensus_dir('data/dex_out_enrich', lambda term: 'dexamethasone' in term)
@@ -223,6 +265,7 @@ plot_ranking_dicts({'Top-N Down': dex_ranking_dict_dn,  'Mean CD Sigs Down': dex
 
 # %%
 thiazolidinedione_ranking_dict_up, thiazolidinedione_ranking_dict_dn = compute_consensus_dir('data/thiazolidinedione_out_enrich', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
+# %%
 thiazolidinedione_mean_sig_ranking_up, thiazolidinedione_mean_sig_ranking_dn = compute_mean_sig_raninking('data/thiazolidinedione_gen3va.gmt', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
 
 #%%
@@ -234,14 +277,18 @@ plot_ranking_dicts({'Top-N Down': thiazolidinedione_ranking_dict_dn,  'Mean CD S
 plot_ranking_dicts({'Top-N Down': thiazolidinedione_ranking_dict_dn,  'Mean CD Sigs Down': thiazolidinedione_mean_sig_ranking_dn}, fig_dir / 'fig3d.pdf')
 # %%
 
-imatinib_ranking_dict_up, imatinib_ranking_dict_dn = compute_consensus_dir('data/imatinib_out_enrich', lambda term: 'imatinib' in term)
-imatinib_mean_sig_ranking_up, imatinib_mean_sig_ranking_dn = compute_mean_sig_raninking('data/imatinib_gen3va.gmt', lambda x: 'imatinib' in x)
+tamoxifen_ranking_dict_up, tamoxifen_ranking_dict_dn = compute_consensus_dir('data/tamoxifen_out_enrich', lambda term: 'tamoxifen' in term)
+# %%
+tamoxifen_mean_sig_ranking_up, tamoxifen_mean_sig_ranking_dn = compute_mean_sig_raninking('data/tamoxifen_gen3va.gmt', lambda x: 'tamoxifen' in x)
 
 #%%
-## E & F (Imatinib)
-plot_ranking_dicts({'Top-N Up': imatinib_ranking_dict_up,  'Mean CD Sigs Up': imatinib_mean_sig_ranking_up}, fig_dir / 'fig3e.pdf')
-plot_ranking_dicts({'Top-N Up': imatinib_ranking_dict_up,  'Mean CD Sigs Up': imatinib_mean_sig_ranking_up}, fig_dir / 'fig3e.png')
+## E & F (Tamoxifen)
+plot_ranking_dicts({'Top-N Up': tamoxifen_ranking_dict_up,  'Mean CD Sigs Up': tamoxifen_mean_sig_ranking_up}, fig_dir / 'fig3e.pdf')
+plot_ranking_dicts({'Top-N Up': tamoxifen_ranking_dict_up,  'Mean CD Sigs Up': tamoxifen_mean_sig_ranking_up}, fig_dir / 'fig3e.png')
 
-plot_ranking_dicts({'Top-N Down': imatinib_ranking_dict_dn,  'Mean CD Sigs Down': imatinib_mean_sig_ranking_dn}, fig_dir / 'fig3f.png')
-plot_ranking_dicts({'Top-N Down': imatinib_ranking_dict_dn,  'Mean CD Sigs Down': imatinib_mean_sig_ranking_dn}, fig_dir / 'fig3f.pdf')
+plot_ranking_dicts({'Top-N Down': tamoxifen_ranking_dict_dn,  'Mean CD Sigs Down': tamoxifen_mean_sig_ranking_dn}, fig_dir / 'fig3f.png')
+plot_ranking_dicts({'Top-N Down': tamoxifen_ranking_dict_dn,  'Mean CD Sigs Down': tamoxifen_mean_sig_ranking_dn}, fig_dir / 'fig3f.pdf')
+# %%
+
+plot_n_auc({"dexamethasone up": dex_ranking_dict_up, "thiazolidinedione up": thiazolidinedione_ranking_dict_up, "tamoxifen up": tamoxifen_ranking_dict_up, "dexamethasone down": dex_ranking_dict_dn, "thiazolidinedione down": thiazolidinedione_ranking_dict_dn, "tamoxifen down": tamoxifen_ranking_dict_dn}, fig_dir / 'fig3g.pdf')
 # %%

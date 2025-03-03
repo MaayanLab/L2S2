@@ -15,7 +15,7 @@ fig_dir = pathlib.Path('figures')/'fig4'
 fig_dir.mkdir(parents=True, exist_ok=True)
 
 
-# %%
+
 @njit(parallel=True)
 def get_p_value_list(fisher, contingency_tables):
     num_tests = contingency_tables.shape[0]
@@ -26,7 +26,7 @@ def get_p_value_list(fisher, contingency_tables):
         results[i] = p_value
     return results
 
-# %%
+
 with open('../data/counts_genes.json') as f:
     counts = json.load(f)
     
@@ -81,13 +81,14 @@ def compute_consensus_stats_up_dn(enrich_df):
 def get_consensus_ranking_dicts(dir, positive_func):
 
     ranking_dict = {
-        #"pvalue_mimicker_500": {"scores": [], "labels": []},
-        #"pvalue_mimicker_1000": {"scores": [], "labels": []},
+        "pvalue_mimicker_500": {"scores": [], "labels": []},
+        "pvalue_mimicker_1000": {"scores": [], "labels": []},
         "pvalue_mimicker_5000": {"scores": [], "labels": []},    
-        #"pvalue_mimicker_10000": {"scores": [], "labels": []},
+        "pvalue_mimicker_10000": {"scores": [], "labels": []},
         "pvalue_mimicker_20000": {"scores": [], "labels": []},
-        #"pvalue_mimicker_40000": {"scores": [], "labels": []},
+        "pvalue_mimicker_40000": {"scores": [], "labels": []},
         "pvalue_mimicker_50000": {"scores": [], "labels": []},
+        "pvalue_mimicker_75000": {"scores": [], "labels": []},
     }
 
     for file in tqdm(os.listdir(dir)): 
@@ -96,7 +97,7 @@ def get_consensus_ranking_dicts(dir, positive_func):
         enrich_df = enrich_df[enrich_df['pvalue_mimic'] < 0.05]
         enrich_df.sort_values('pvalue_mimic', inplace=True)
         enrich_df.reset_index(inplace=True, drop=True)
-        for topn in [5000, 20000, 50000]:
+        for topn in [int(k.split('_')[-1]) for k in ranking_dict.keys()]:
             consensus_table = compute_consensus_stats_up_dn(enrich_df[:topn])
             consensus_table['hit'] = consensus_table['pert'].map(positive_func)
             consensus_table.sort_values('pvalue_mimicker', inplace=True)
@@ -106,8 +107,6 @@ def get_consensus_ranking_dicts(dir, positive_func):
             ranking_dict[f'pvalue_mimicker_{topn}']["labels"].extend(consensus_table['hit'].values)
             ranking_dict[f'pvalue_mimicker_{topn}']["scores"].extend(consensus_table['scores'].values)
     return ranking_dict
-
-
 
 def get_mw_ks_ranking_dicts(dir, positive_func):
     
@@ -127,12 +126,19 @@ def get_mw_ks_ranking_dicts(dir, positive_func):
             mw_ks_ranking_dict['pvalue']['scores'].extend(list(df['scores']))
             mw_ks_ranking_dict['pvalue']['labels'].extend(list(df['labels']))
     return mw_ks_ranking_dict
-#%%
 
-all_counts = pd.read_csv(f"data/dex_l1000_ranker/mw/mw0b4d450290.tsv", sep='\t').rename(columns={'total sigs': 'count', 'Unnamed: 0': 'term'})[['term', 'count']]
-all_counts
-len(all_counts)
-#%%
+all_counts = pd.DataFrame(counts.items(), columns=['pert', 'count'])
+
+def get_count_ranking_dict(positive_func):
+    count_ranking_dict = { "Count": {"scores": [], "labels": []}}
+    all_counts['hit'] = all_counts['pert'].map(positive_func)
+    all_counts.sort_values('count', ascending=False, inplace=True)
+    all_counts.reset_index(drop=True, inplace=True)
+    all_counts['scores'] = 1 -  ((all_counts.index.values + 1) / len(all_counts))
+    count_ranking_dict['Count']["labels"].extend(all_counts['hit'].values)
+    count_ranking_dict['Count']["scores"].extend(all_counts['scores'].values)
+    return count_ranking_dict
+
 def plot_ranking_dicts(ranking_dicts, save=None):
     plt.figure(figsize=(10, 8))
     for ranking_dict_name in ranking_dicts:
@@ -140,7 +146,7 @@ def plot_ranking_dicts(ranking_dicts, save=None):
         for m in ranking_dict.keys():  
             fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
             roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m} (AUC = {roc_auc:.2f})')
+            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m.replace("pvalue_mimicker_", "pvalue (n=")}) (AUC = {roc_auc:.2f})')
             plt.xlabel('False Positive Rate')
             plt.ylabel('True Positive Rate')
             plt.legend(loc='lower right')
@@ -150,6 +156,48 @@ def plot_ranking_dicts(ranking_dicts, save=None):
         plt.savefig(save, dpi=300, bbox_inches='tight')
     plt.show()
 
+import matplotlib as mp
+def plot_n_auc(ranking_dicts, save=None, show=True):
+    plt.rcParams.update(mp.rcParamsDefault)
+    drug_aucs_n = {}
+
+    for ranking_dict_name in ranking_dicts:
+        ranking_dict = ranking_dicts[ranking_dict_name]
+
+        if ranking_dict_name not in drug_aucs_n:
+            drug_aucs_n[ranking_dict_name] = {"aucs": [], "ns": []}
+
+        for m in ranking_dict.keys():  
+            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
+            roc_auc = auc(fpr, tpr)
+            drug_aucs_n[ranking_dict_name]["aucs"].append(roc_auc)
+            drug_aucs_n[ranking_dict_name]["ns"].append(int(m.split('_')[-1]))
+
+    plt.figure(figsize=(10, 8))
+    for drug in drug_aucs_n:
+        plt.plot(
+            drug_aucs_n[drug]["ns"], 
+            drug_aucs_n[drug]["aucs"], 
+            lw=1,  
+            marker='o',
+            markersize=5,
+            label=f'{drug}'
+        )
+
+    plt.xlabel("N Signatures", fontsize=16)
+    plt.ylabel("AUC", fontsize=16)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    
+    if save:
+        plt.savefig(save, dpi=300, bbox_inches='tight')
+    if show:
+        plt.show()
+    
+    plt.clf()
+
 #%%        
 dex_ranking_dict = get_consensus_ranking_dicts('data/dex_pair_enrichment', lambda x: "dexamethasone" in x)
 
@@ -157,9 +205,11 @@ dex_ranking_dict = get_consensus_ranking_dicts('data/dex_pair_enrichment', lambd
 dex_mw_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/mw', lambda x: "dexamethasone" in x)
 dex_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/uniform_2t', lambda x: "dexamethasone" in x)
 dex_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/norm_2t', lambda x: "dexamethasone" in x)
+
+#dex_count_ranking_dict = get_count_ranking_dict(lambda x: "dexamethasone" in x)
 #%%
-plot_ranking_dicts({'Up-Down Top N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4a.pdf')
-plot_ranking_dicts({'Up-Down Top N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir /'fig4a.png')
+plot_ranking_dicts({'Up-Down Top-N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4a.pdf')
+plot_ranking_dicts({'Up-Down Top-N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir /'fig4a.png')
 
 # %%
 thiazolidinedione_ranking_dict = get_consensus_ranking_dicts('data/thiazolidinedione_pair_enrichment', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
@@ -169,10 +219,10 @@ thiazolidinedione_mw_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedi
 thiazolidinedione_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/uniform_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
 thiazolidinedione_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/norm_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
 
-#%%
-plot_ranking_dicts({'Up-Down Top N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.pdf')
-plot_ranking_dicts({'Up-Down Top N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.png')
+#thiazolidinedione_count_ranking_dict = get_count_ranking_dict(lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
 # %%
+plot_ranking_dicts({'Up-Down Top-N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.pdf')
+plot_ranking_dicts({'Up-Down Top-N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.png')
 
 #%%
 tamoxifen_ranking_dict = get_consensus_ranking_dicts('data/tamoxifen_pair_enrichment', lambda x: 'tamoxifen' in x)
@@ -180,7 +230,11 @@ tamoxifen_ranking_dict = get_consensus_ranking_dicts('data/tamoxifen_pair_enrich
 tamoxifen_mw_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/mw', lambda x: 'tamoxifen' in x)
 tamoxifen_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/uniform_2t', lambda x: 'tamoxifen' in x)
 tamoxifen_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/norm_2t', lambda x: 'tamoxifen' in x)
+#tamoxifen_count_ranking_dict = get_count_ranking_dict(lambda x: 'tamoxifen' in x)
 # %%
-plot_ranking_dicts({'Up-Down Top N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.pdf')
-plot_ranking_dicts({'Up-Down Top N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.png')
+plot_ranking_dicts({'Up-Down Top-N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.pdf')
+plot_ranking_dicts({'Up-Down Top-N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.png')
 # %%
+plot_n_auc({"dexamethasone up-down": dex_ranking_dict, "thiazolidinedione up-down": thiazolidinedione_ranking_dict, "tamoxifen up-down": tamoxifen_ranking_dict, "dexamethasone up": dex_ranking_dict_up, "thiazolidinedione up": thiazolidinedione_ranking_dict_up, "tamoxifen up": tamoxifen_ranking_dict_up, "dexamethasone down": dex_ranking_dict_dn, "thiazolidinedione down": thiazolidinedione_ranking_dict_dn, "tamoxifen down": tamoxifen_ranking_dict_dn}, save= fig_dir / 'fig4d.pdf')
+# %%
+
