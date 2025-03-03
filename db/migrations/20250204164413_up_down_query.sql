@@ -57,6 +57,8 @@ create or replace function app_private_v2.indexed_paired_enrich(
     filter_fda=filter_fda,
     filter_ko=filter_ko
   )
+  if len(gene_ids_up) < 1 or len(gene_ids_down) < 1:
+    return dict(nodes=[], consensus=[], total_count=0, consensus_count=0)
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first

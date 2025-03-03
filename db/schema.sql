@@ -258,6 +258,8 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
     filter_fda=filter_fda,
     filter_ko=filter_ko
   )
+  if len(gene_ids) < 1:
+    return dict(nodes=[], consensus=[], total_count=0, consensus_count=0)
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first
@@ -289,6 +291,8 @@ CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.ba
     filter_fda=filter_fda,
     filter_ko=filter_ko
   )
+  if len(gene_ids_up) < 1 or len(gene_ids_down) < 1:
+    return dict(nodes=[], consensus=[], total_count=0, consensus_count=0)
   if filter_term: params['filter_term'] = filter_term
   if offset: params['offset'] = offset
   if first: params['limit'] = first
@@ -920,9 +924,13 @@ $$;
 CREATE FUNCTION app_public_v2.gene_map_2(genes character varying[]) RETURNS SETOF app_public_v2.gene_mapping
     LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
     AS $$
-  select g.id as gene_id, ug.gene as gene
-  from unnest(gene_map_2.genes) ug(gene)
-  inner join app_public_v2.gene g on g.symbol = upper(ug.gene) or g.synonyms ? upper(ug.gene);
+  select
+    g.id as gene_id,
+    ug.gene as gene
+  from unnest(genes) ug(gene)
+  left join app_public_v2.gene g
+    on g.symbol = upper(ug.gene)
+    or g.synonyms ? upper(ug.gene);
 $$;
 
 
@@ -1897,4 +1905,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20241106193605'),
     ('20241111165343'),
     ('20250204164413'),
-    ('20250213194034');
+    ('20250213194034'),
+    ('20250303153036'),
+    ('20250303172415');

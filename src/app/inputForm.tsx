@@ -55,7 +55,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
         className="flex flex-col place-items-end"
         onSubmit={async (evt) => {
           evt.preventDefault()
-          if (genes.length < 1) return
+          if (genes.length < 1 || genes.length > 3000) return
           const result = await addUserGeneSetMutation({
             variables: {
               genes,
@@ -83,11 +83,12 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
             type="file"
             onChange={(e) => {handleFileChosen(e.target.files?.[0] || null)}}/>
         <span className='mx-auto'>{genes.length} gene(s) entered</span>
-        <button className="btn mx-auto" type="submit" disabled={genes.length < 1}>Submit</button>
+        <button className="btn mx-auto" type="submit" disabled={genes.length < 1 || genes.length > 3000}  data-tooltip-target="tooltip">Submit</button>
         <span className={classNames("loading", "w-6", { 'hidden': !loading })}></span>
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
+        {genes.length > 3000 && <div className="alert alert-error">Gene set is too large. Please enter a gene set with less than 3000 genes.</div>}
       </form>
-      <button className='btn btn-outline text-xs p-2' onClick={() => setInputSingle(false)}>SWITCH TO UP/DOWN SETS INPUT</button>
+      <button className='btn btn-outline text-xs p-2 m-2' onClick={() => setInputSingle(false)}>SWITCH TO UP/DOWN SETS INPUT</button>
     </>
   )
 }
