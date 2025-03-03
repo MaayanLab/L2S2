@@ -10,13 +10,23 @@ import { useRouter } from 'next/navigation'
 export default function InputForm({setInputSingle} : {setInputSingle:  React.Dispatch<React.SetStateAction<boolean>>}) {
   const router = useRouter()
   const [rawGenes, setRawGenes] = React.useState('')
-  const genes = React.useMemo(() => uniqueArray(rawGenes.split(/[;,\t\r\n\s]+/).filter(v => v)), [rawGenes])
+  const genes = React.useMemo(() => 
+    uniqueArray(
+      rawGenes
+        .split(/[;,\t\r\n\s]+/) // Split on common delimiters
+        .filter(v => /^[A-Z0-9]+$/.test(v) && v.length > 2) // Ensure only uppercase letters/numbers
+    ), 
+    [rawGenes]
+  );
+  
   const [addUserGeneSetMutation, { loading, error }] = useAddUserGeneSetMutation()
   var fileReader = React.useRef<FileReader | null>(null);
+  const [description, setDescription] = React.useState('User Gene Set')
 
   const handleFileRead = React.useCallback(() => {
       const content = fileReader!.current!.result as string;
-      setRawGenes(content!);
+      setRawGenes(content!.split(/[;,\t\r\n\s]+/) // Split on common delimiters
+      .filter(v => /^[A-Z0-9]+$/.test(v) && v.length > 2).join('\n'));
   }, [setRawGenes])
 
 
@@ -25,6 +35,8 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
       fileReader.current.onloadend = handleFileRead;
       console.log(file)
       fileReader.current.readAsText(file!);
+      
+  
   }, [handleFileRead]);
 
   return (
@@ -35,6 +47,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
           className="font-bold cursor-pointer"
           onClick={() => {
             setRawGenes(example.genes.join('\n'))
+            setDescription("Consensus Dexamethasone Up")
           }}
         >example</a>.
       </p>
@@ -46,7 +59,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
           const result = await addUserGeneSetMutation({
             variables: {
               genes,
-              description: 'Consensus Dexamethasone Up',
+              description: description,
             }
           })
           const id = result.data?.addUserGeneSet?.userGeneSet?.id

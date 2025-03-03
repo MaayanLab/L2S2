@@ -83,7 +83,7 @@ function EnrichmentResults({
       }),
       [queryString]
     );
-  const { data: enrichmentResults } = useEnrichmentQueryQuery({
+  const { data: enrichmentResults, error } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
     variables: {
       genes,
@@ -106,7 +106,7 @@ function EnrichmentResults({
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
-        {!enrichmentResults?.currentBackground?.enrich ? (
+        {!enrichmentResults?.currentBackground?.enrich && !error ? (
           <>
             Rummaging through <Stats show_gene_sets />.
           </>
@@ -137,7 +137,7 @@ function EnrichmentResults({
                   src="/images/LINCSearch_logo.png"
                   width={50}
                   height={100}
-                  alt="LINCSearch"
+                  alt="L2S2"
                 ></Image>{" "}
                 found{" "}
                 {Intl.NumberFormat("en-US", {}).format(
@@ -653,7 +653,7 @@ function EnrichmentResults({
                 </tr>
               </thead>
               <tbody>
-                {!enrichmentResults?.currentBackground?.enrich ? (
+                {!enrichmentResults?.currentBackground?.enrich && !error ? (
                   <tr>
                     <td colSpan={7}>
                       <Loading />
@@ -909,7 +909,7 @@ function EnrichmentResults({
               </tr>
             </thead>
             <tbody>
-              {!enrichmentResults?.currentBackground?.enrich ? (
+              {!enrichmentResults?.currentBackground?.enrich && !error ? (
                 <tr>
                   <td colSpan={7}>
                     <Loading />
@@ -1158,6 +1158,8 @@ function GeneSetModalWrapper(props: {
   modalGeneSet: GeneSetModalT;
   setModalGeneSet: React.Dispatch<React.SetStateAction<GeneSetModalT>>;
 }) {
+
+  
   const { data: geneSet } = useViewGeneSetQuery({
     skip: props.modalGeneSet?.type !== "GeneSet",
     variables:
@@ -1177,6 +1179,7 @@ function GeneSetModalWrapper(props: {
           }
         : undefined,
   });
+
   const { data: userGeneSet } = useFetchGeneInfoQuery({
     skip: props.modalGeneSet?.type !== "UserGeneSet",
     variables:
@@ -1186,6 +1189,7 @@ function GeneSetModalWrapper(props: {
           }
         : undefined,
   });
+
   return (
     <GeneSetModal
       showModal={props.modalGeneSet !== undefined}
@@ -1196,7 +1200,7 @@ function GeneSetModalWrapper(props: {
           : props.modalGeneSet?.type === "GeneSetOverlap"
           ? overlap?.geneSet?.overlap.nodes
           : props.modalGeneSet?.type === "UserGeneSet"
-          ? userGeneSet?.geneMap2?.nodes
+          ? (userGeneSet?.geneMap2?.nodes)
             ? userGeneSet.geneMap2.nodes.map(({ gene, geneInfo }) => ({
                 gene,
                 ...geneInfo,
@@ -1223,6 +1227,7 @@ export default function EnrichClientPage({
     skip: !dataset,
     variables: { id: dataset },
   });
+  console.log(userGeneSet)
   const [modalGeneSet, setModalGeneSet] = React.useState<GeneSetModalT>();
   return (
     <>

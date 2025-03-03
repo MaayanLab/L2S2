@@ -70,6 +70,8 @@ export default function GeneSetModal({
   const router = useRouter();
   const [addUserGeneSetMutation, { loading, error }] =
     useAddUserGeneSetMutation();
+
+  console.log(geneset)
   const genes = React.useMemo(
     () =>
       geneset
@@ -78,9 +80,10 @@ export default function GeneSetModal({
             gene
           ): gene is Exclude<typeof gene, null | undefined> & {
             symbol: string;
-          } => !!gene?.symbol
+          } => !!gene?.gene
         )
-        .map(({ symbol }) => symbol),
+        .map(({ gene }) => gene)
+        .filter((gene): gene is string | null => gene !== undefined),
     [geneset]
   );
   const genesDown = React.useMemo(
@@ -91,9 +94,10 @@ export default function GeneSetModal({
             gene
           ): gene is Exclude<typeof gene, null | undefined> & {
             symbol: string;
-          } => !!gene?.symbol
+          } => !!gene?.gene
         )
-        .map(({ symbol }) => symbol),
+        .map(({ gene }) => gene)
+        .filter((gene): gene is string | null => gene !== undefined),
     [geneset2]
   );
   React.useEffect(() => {
@@ -104,6 +108,8 @@ export default function GeneSetModal({
     if (!ref.current) return;
     if (showModal) ref.current.showModal();
   }, [ref, showModal]);
+
+  
   return (
     <>
       <dialog className="modal" ref={ref}>
@@ -124,27 +130,20 @@ export default function GeneSetModal({
               <div className="overflow-x-auto block">
                 <table className="table table-xs table-pin-rows table-pin-cols">
                   <thead className="bg-white dark:bg-slate-800 sticky top-0">
-                    <th>Up Genes</th>
+                    <th>{geneset2 ? "Up Genes" : <></>}</th>
                     <th>Symbol</th>
                     <th>Description</th>
                     <th>Summary</th>
                   </thead>
                   <tbody className="overflow-y-auto">
                     {geneset
-                      .filter(
-                        (
-                          gene
-                        ): gene is Exclude<typeof gene, null | undefined> & {
-                          symbol: string;
-                        } => !!gene?.symbol
-                      )
                       .map((gene) => (
-                        <tr key={gene.symbol}>
-                          <td>{gene.gene}</td>
-                          <td className="font-bold">{gene.symbol}</td>
-                          <td>{gene.description}</td>
+                        <tr key={gene?.symbol ?? gene?.gene}>
+                          <td>{gene?.gene}</td>
+                          <td className="font-bold">{gene?.symbol ?? gene?.gene}</td>
+                          <td>{gene?.description ?? "Gene not contained in L2S2 background"} </td>
                           <td>
-                            <ExpandableText text={gene.summary ?? ""} />
+                            <ExpandableText text={gene?.summary ?? ""} />
                           </td>
                         </tr>
                       ))}
@@ -192,11 +191,8 @@ export default function GeneSetModal({
                 Copy Symbols to Clipboard
               </button>
               <EnrichrButton genes={genes} description={term}></EnrichrButton>
-              <RummageoButton genes={genes} description={term}></RummageoButton>
-              <RummageneButton
-                genes={genes}
-                description={term}
-              ></RummageneButton>
+              <RummageoButton genes={genes?.filter((gene): gene is string => gene !== null)} description={term}></RummageoButton>
+              <RummageneButton genes={genes?.filter((gene): gene is string => gene !== null)} description={term} ></RummageneButton>
               <span
                 className={classNames("loading", "w-6", { hidden: !loading })}
               ></span>
@@ -284,8 +280,8 @@ export default function GeneSetModal({
               Copy Symbols to Clipboard
             </button>
             <EnrichrButton genes={genesDown} description={term}></EnrichrButton>
-            <RummageoButton genes={genesDown} description={term}></RummageoButton>
-            <RummageneButton genes={genesDown} description={term}></RummageneButton>
+            <RummageoButton genes={genesDown?.filter((gene): gene is string => gene !== null)} description={term}></RummageoButton>
+            <RummageneButton genes={genesDown?.filter((gene): gene is string => gene !== null)} description={term}></RummageneButton>
             <span
               className={classNames("loading", "w-6", { hidden: !loading })}
             ></span>

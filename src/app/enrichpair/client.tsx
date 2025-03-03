@@ -107,7 +107,7 @@ function EnrichmentResults({
       }),
       [queryString]
     );
-  const { data: enrichmentResults } = usePairEnrichmentQueryQuery({
+  const { data: enrichmentResults, error } = usePairEnrichmentQueryQuery({
     skip: genesUp.length === 0 || genesDown.length === 0,
     variables: {
       genesUp,
@@ -128,12 +128,10 @@ function EnrichmentResults({
     setRawTerm(term);
   }, [term]);
 
-  console.log(enrichmentResults)
-
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
-        {!enrichmentResults?.currentBackground?.pairedEnrich ? (
+        {!enrichmentResults?.currentBackground?.pairedEnrich && !error ? (
           <>
             Rummaging through <Stats show_gene_sets />.
           </>
@@ -680,7 +678,7 @@ function EnrichmentResults({
                 </tr>
               </thead>
               <tbody>
-                {!enrichmentResults?.currentBackground?.pairedEnrich ? (
+                {!enrichmentResults?.currentBackground?.pairedEnrich && !error ? (
                   <tr>
                     <td colSpan={7}>
                       <Loading />
@@ -986,7 +984,7 @@ function EnrichmentResults({
               </tr>
             </thead>
             <tbody>
-              {!enrichmentResults?.currentBackground?.pairedEnrich ? (
+              {!enrichmentResults?.currentBackground?.pairedEnrich && !error ? (
                 <tr>
                   <td colSpan={7}>
                     <Loading />
