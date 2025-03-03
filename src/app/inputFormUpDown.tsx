@@ -15,8 +15,8 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
   const genesDown = React.useMemo(() => uniqueArray(rawGenesDown.split(/[;,\t\r\n\s]+/).filter(v => v)), [rawGenesDown])
   const [addUserGeneSetMutation, { loading, error }] = useAddUserGeneSetMutation()
   var fileReader = React.useRef<FileReader | null>(null);
-  const [upDescription, setUpDescription] = React.useState('')
-  const [downDescription, setDownDescription] = React.useState('') 
+  const [upDescription, setUpDescription] = React.useState('User Up Gene Set')
+  const [downDescription, setDownDescription] = React.useState('User Down Gene Set') 
 
   const handleFileReadUp = React.useCallback(() => {
       const content = fileReader!.current!.result as string;
