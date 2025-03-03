@@ -47,6 +47,8 @@ export default function DownloadClientPage() {
           </a>
         ))}
       </div>
+      <p>GMT Term Structure:</p>
+      <img className='mb-4' src='/images/term_diagram.png' width={"700px"}/>
       <p>
         Developed in <a className='underline cursor' href="https://labs.icahn.mssm.edu/maayanlab/">the Ma&apos;ayan Lab</a>
       </p>
