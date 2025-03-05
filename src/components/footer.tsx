@@ -80,19 +80,14 @@ export default function Footer() {
           </Link>
         </p>
       </div>
-      <div className="text-center pt-5">
+      <div className="text-center pt-8 text-md">
         <ul>
           <li>
             <Link
-              href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"
+              href="https://www.apache.org/licenses/LICENSE-2.0.txt"
               target="_blank"
             >
-              <Image
-                src="/images/by-sa.png"
-                alt="CC-by-NC-SA"
-                width={117}
-                height={41}
-              />
+              LICENSE
             </Link>
           </li>
         </ul>
