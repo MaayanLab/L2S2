@@ -128,7 +128,7 @@ def get_overlap(genes, id):
         "id": id,
         "genes": genes
     },
-    "query": "query OverlapQuery($id: UUID!, $genes: [String]!) {geneSet(id: $id) {\n    overlap(genes: $genes) {\n      nodes {\n        symbol\n        ncbiGeneId\n        description\n        summary\n      }   }}}"
+    "query": """query OverlapQuery($id: UUID!, $genes: [String]!) {geneSet(id: $id) {\n    overlap(genes: $genes) {\n      nodes {\n        symbol\n        ncbiGeneId\n        description\n        summary\n      }   }}}"""
     }
     
     headers = {
