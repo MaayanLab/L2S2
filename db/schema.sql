@@ -256,7 +256,8 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
     pvalue_le=pvalue_le,
     adj_pvalue_le=adj_pvalue_le,
     filter_fda=filter_fda,
-    filter_ko=filter_ko
+    filter_ko=filter_ko,
+    top_n=top_n
   )
   if len(gene_ids) < 1:
     return dict(nodes=[], consensus=[], total_count=0, consensus_count=0)
@@ -289,7 +290,8 @@ CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.ba
     pvalue_le=pvalue_le,
     adj_pvalue_le=adj_pvalue_le,
     filter_fda=filter_fda,
-    filter_ko=filter_ko
+    filter_ko=filter_ko,
+    top_n=top_n
   )
   if len(gene_ids_up) < 1 or len(gene_ids_down) < 1:
     return dict(nodes=[], consensus=[], total_count=0, consensus_count=0)
