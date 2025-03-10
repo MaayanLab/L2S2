@@ -1240,7 +1240,7 @@ async fn query_pairs(
     Ok(PairedQueryResponse {
         results,
         consensus: consensus_results,
-        content_range: (range_start, range_end, range_total, 0),
+        content_range: (range_start, range_end, range_total, consensus_len),
     })
 }
 
