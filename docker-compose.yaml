@@ -20,7 +20,7 @@ services:
   l2s2-enrich:
     build: enrich
     platform: linux/amd64
-    image: maayanlab/l2s2-enrich:0.2.04
+    image: maayanlab/l2s2-enrich:0.2.05
     deploy:
       resources:
         reservations:
