@@ -3,7 +3,7 @@ services:
   l2s2-app:
     build: .
     platform: linux/amd64
-    image: maayanlab/l2s2:0.2.16
+    image: maayanlab/l2s2:0.2.17
     x-kubernetes:
       imagePullPolicy: IfNotPresent
       annotations:
