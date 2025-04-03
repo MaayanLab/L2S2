@@ -10,7 +10,7 @@ import numpy as np
 from numba import njit, prange
 import pathlib
 
-fig_dir = pathlib.Path('figures')/'fig3'
+fig_dir = pathlib.Path('figures')/'figS2'
 fig_dir.mkdir(parents=True, exist_ok=True)
 
 @njit(parallel=True)
@@ -198,7 +198,7 @@ def plot_ranking_dicts(ranking_dicts, save=None, show=True):
         for m in ranking_dict.keys():  
             fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
             roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m.replace("pvalue_up_", "pvalue up (n=").replace("pvalue_dn_", "pvalue down (n=")}) (AUC = {roc_auc:.2f})')
+            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m.replace("pvalue_up_", "pvalue (n=").replace("pvalue_dn_", "pvalue n=")} (AUC = {roc_auc:.2f})')
     plt.xlabel('False Positive Rate', fontsize=16)
     plt.ylabel('True Positive Rate', fontsize=16)
     plt.xticks(fontsize=14)

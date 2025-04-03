@@ -1,240 +1,108 @@
+#%%
+import re
+import pathlib
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+from maayanlab_bioinformatics.dge import limma_voom_differential_expression
+from maayanlab_bioinformatics.harmonization import ncbi_genes_lookup
+from maayanlab_bioinformatics.api import enrichr_get_top_results
+from common import *
+
+lookup = ncbi_genes_lookup()
 
 #%%
-import pandas as pd
-import os
-import json
-import pyenrichr as pye
-from tqdm import tqdm
-import numpy as np
-from numba import float64, int64, njit, prange
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
-import pathlib
-
 fig_dir = pathlib.Path('figures')/'fig4'
 fig_dir.mkdir(parents=True, exist_ok=True)
 
-
-
-@njit(parallel=True)
-def get_p_value_list(fisher, contingency_tables):
-    num_tests = contingency_tables.shape[0]
-    results = np.empty(num_tests, dtype=np.float64)
-    for i in prange(num_tests):
-        a, b, c, d = contingency_tables[i]
-        p_value = fisher.get_p_value(a, b, c, d)
-        results[i] = p_value
-    return results
-
-
-with open('../data/counts_genes.json') as f:
-    counts = json.load(f)
-    
-with open('../data/counts_perts.json') as f:
-    counts_perts = json.load(f)
-
-counts.update(counts_perts)
-
-
 #%%
-fisher = pye.enrichment.FastFisher(44000)
-def compute_consensus_stats_up_dn(enrich_df):
-    # Ensure 'is_up' and 'is_down' columns exist
-    enrich_df = enrich_df.assign(
-        is_mimicker=enrich_df['pvalue_mimic'] < 0.05,
-        is_reverser=enrich_df['pvalue_reverse'] < 0.05
-    )
 
-    # Filter for 'pert' values in counts
-    enrich_df = enrich_df[enrich_df['pert'].isin(counts)]
-    
-    # Precompute total_n
-    enrich_df['total_n'] = enrich_df['pert'].map(counts)
-
-    # Group by 'pert' and compute aggregates
-    grouped = enrich_df.groupby('pert').agg(
-        a_up=('is_mimicker', 'sum'),
-        b_up=('is_reverser', 'sum'),
-        total_n=('total_n', 'first')  # All rows in the same group have the same total_n
-    ).reset_index()
-
-    # Compute additional columns for Fisher's test
-    grouped['a_down'] = (grouped['total_n'] // 2) - grouped['a_up']
-    grouped['b_down'] = (grouped['total_n'] // 2) - grouped['b_up']
-
-    # Create contingency tables
-    contingency_tables = grouped[['a_up', 'b_up', 'a_down', 'b_down']].to_numpy(dtype=np.int64)
-
-    # Compute p-values using the FastFisher instance
-    p_values_up = get_p_value_list(fisher, contingency_tables)
-    p_values_down = get_p_value_list(
-        fisher, contingency_tables[:, [1, 0, 3, 2]]  # Swap a/b and c/d for down test
-    )
-
-    # Append results to the DataFrame
-    grouped['pvalue_mimicker'] = p_values_up
-    grouped['pvalue_reverser'] = p_values_down
-
-    # Return the final DataFrame
-    return grouped[['pert', 'pvalue_mimicker', 'pvalue_reverser']]
-
-def get_consensus_ranking_dicts(dir, positive_func):
-
-    ranking_dict = {
-        "pvalue_mimicker_500": {"scores": [], "labels": []},
-        "pvalue_mimicker_1000": {"scores": [], "labels": []},
-        "pvalue_mimicker_5000": {"scores": [], "labels": []},    
-        "pvalue_mimicker_10000": {"scores": [], "labels": []},
-        "pvalue_mimicker_20000": {"scores": [], "labels": []},
-        "pvalue_mimicker_40000": {"scores": [], "labels": []},
-        "pvalue_mimicker_50000": {"scores": [], "labels": []},
-        "pvalue_mimicker_75000": {"scores": [], "labels": []},
-    }
-
-    for file in tqdm(os.listdir(dir)): 
-        enrich_df = pd.read_csv(f'{dir}/{file}', sep='\t', index_col=0)
-        enrich_df['pert'] = enrich_df['sig'].map(lambda term: term.split('_')[4])
-        enrich_df = enrich_df[enrich_df['pvalue_mimic'] < 0.05]
-        enrich_df.sort_values('pvalue_mimic', inplace=True)
-        enrich_df.reset_index(inplace=True, drop=True)
-        for topn in [int(k.split('_')[-1]) for k in ranking_dict.keys()]:
-            consensus_table = compute_consensus_stats_up_dn(enrich_df[:topn])
-            consensus_table['hit'] = consensus_table['pert'].map(positive_func)
-            consensus_table.sort_values('pvalue_mimicker', inplace=True)
-            consensus_table.reset_index(inplace=True, drop=True)
-            consensus_table['scores'] = 1 -  ((consensus_table.index.values + 1) / len(consensus_table))
-           
-            ranking_dict[f'pvalue_mimicker_{topn}']["labels"].extend(consensus_table['hit'].values)
-            ranking_dict[f'pvalue_mimicker_{topn}']["scores"].extend(consensus_table['scores'].values)
-    return ranking_dict
-
-def get_mw_ks_ranking_dicts(dir, positive_func):
-    
-    mw_ks_ranking_dict = {
-        "pvalue": {"scores": [], "labels": []}
-    }
-    
-    for f in tqdm(os.listdir(dir)):
-        if 'mimickers_' in f:
-            df = pd.read_csv(f'{dir}/{f}', sep='\t', index_col=0).rename(columns={'total sigs': 'count'})
-            df = df[df['p-value'] < 0.05]
-            df.sort_values(by='p-value', inplace=True, ascending=True)
-            df.index.name = 'term'
-            df.reset_index(drop=False, inplace=True)
-            df['labels'] = [1 if positive_func(x.split()[0].lower()) else 0 for x in df['term']]
-            df['scores'] = 1 -  ((df.index.values) / len(df))
-            mw_ks_ranking_dict['pvalue']['scores'].extend(list(df['scores']))
-            mw_ks_ranking_dict['pvalue']['labels'].extend(list(df['labels']))
-    return mw_ks_ranking_dict
-
-all_counts = pd.DataFrame(counts.items(), columns=['pert', 'count'])
-
-def get_count_ranking_dict(positive_func):
-    count_ranking_dict = { "Count": {"scores": [], "labels": []}}
-    all_counts['hit'] = all_counts['pert'].map(positive_func)
-    all_counts.sort_values('count', ascending=False, inplace=True)
-    all_counts.reset_index(drop=True, inplace=True)
-    all_counts['scores'] = 1 -  ((all_counts.index.values + 1) / len(all_counts))
-    count_ranking_dict['Count']["labels"].extend(all_counts['hit'].values)
-    count_ranking_dict['Count']["scores"].extend(all_counts['scores'].values)
-    return count_ranking_dict
-
-def plot_ranking_dicts(ranking_dicts, save=None):
-    plt.figure(figsize=(10, 8))
-    for ranking_dict_name in ranking_dicts:
-        ranking_dict = ranking_dicts[ranking_dict_name]
-        for m in ranking_dict.keys():  
-            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
-            roc_auc = auc(fpr, tpr)
-            plt.plot(fpr, tpr, lw=2, label=f'{ranking_dict_name} {m.replace("pvalue_mimicker_", "pvalue (n=")}) (AUC = {roc_auc:.2f})')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.legend(loc='lower right')
-            plt.grid(alpha=0.3)
-    plt.plot([0, 1], [0, 1], color='gray', linestyle='--', label='Random')
-    if save:
-        plt.savefig(save, dpi=300, bbox_inches='tight')
-    plt.show()
-
-import matplotlib as mp
-def plot_n_auc(ranking_dicts, save=None, show=True):
-    plt.rcParams.update(mp.rcParamsDefault)
-    drug_aucs_n = {}
-
-    for ranking_dict_name in ranking_dicts:
-        ranking_dict = ranking_dicts[ranking_dict_name]
-
-        if ranking_dict_name not in drug_aucs_n:
-            drug_aucs_n[ranking_dict_name] = {"aucs": [], "ns": []}
-
-        for m in ranking_dict.keys():  
-            fpr, tpr, thresholds = roc_curve(ranking_dict[m]['labels'], ranking_dict[m]['scores'])
-            roc_auc = auc(fpr, tpr)
-            drug_aucs_n[ranking_dict_name]["aucs"].append(roc_auc)
-            drug_aucs_n[ranking_dict_name]["ns"].append(int(m.split('_')[-1]))
-
-    plt.figure(figsize=(10, 8))
-    for drug in drug_aucs_n:
-        plt.plot(
-            drug_aucs_n[drug]["ns"], 
-            drug_aucs_n[drug]["aucs"], 
-            lw=1,  
-            marker='o',
-            markersize=5,
-            label=f'{drug}'
-        )
-
-    plt.xlabel("N Signatures", fontsize=16)
-    plt.ylabel("AUC", fontsize=16)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    
-    if save:
-        plt.savefig(save, dpi=300, bbox_inches='tight')
-    if show:
-        plt.show()
-    
-    plt.clf()
-
-#%%        
-dex_ranking_dict = get_consensus_ranking_dicts('data/dex_pair_enrichment', lambda x: "dexamethasone" in x)
-
-#%%
-dex_mw_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/mw', lambda x: "dexamethasone" in x)
-dex_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/uniform_2t', lambda x: "dexamethasone" in x)
-dex_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/dex_l1000_ranker/ks/norm_2t', lambda x: "dexamethasone" in x)
-
-#dex_count_ranking_dict = get_count_ranking_dict(lambda x: "dexamethasone" in x)
-#%%
-plot_ranking_dicts({'Up-Down Top-N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4a.pdf')
-plot_ranking_dicts({'Up-Down Top-N': dex_ranking_dict, 'MW': dex_mw_ranking_dict, 'KS Uniform 2T': dex_ks_uniform2t_ranking_dict, 'KS Norm 2T': dex_ks_norm2t_ranking_dict}, save= fig_dir /'fig4a.png')
+CYTOR_df = pd.read_csv('data/GSE285084_CYTOR_KD_Gene_Counts.csv', index_col=0)
+print(len(CYTOR_df))
+KD_samples = [col for col in CYTOR_df.columns if 'CYTOR' in col]
+CTRL_samples = [col for col in CYTOR_df.columns if 'NC' in col]
+dge = limma_voom_differential_expression(CYTOR_df[CTRL_samples], CYTOR_df[KD_samples], CYTOR_df)
+dge
 
 # %%
-thiazolidinedione_ranking_dict = get_consensus_ranking_dicts('data/thiazolidinedione_pair_enrichment', lambda x:'rosiglitazone' in x or 'pioglitazone' in x)
 
-# %%
-thiazolidinedione_mw_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/mw', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
-thiazolidinedione_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/uniform_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
-thiazolidinedione_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/thiazolidinedione_l1000_ranker/ks/norm_2t', lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
-
-#thiazolidinedione_count_ranking_dict = get_count_ranking_dict(lambda x: 'rosiglitazone' in x or 'pioglitazone' in x)
-# %%
-plot_ranking_dicts({'Up-Down Top-N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.pdf')
-plot_ranking_dicts({'Up-Down Top-N': thiazolidinedione_ranking_dict, 'MW': thiazolidinedione_mw_ranking_dict, 'KS Uniform 2T': thiazolidinedione_ks_uniform2t_ranking_dict, 'KS Norm 2T': thiazolidinedione_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4b.png')
-
-#%%
-tamoxifen_ranking_dict = get_consensus_ranking_dicts('data/tamoxifen_pair_enrichment', lambda x: 'tamoxifen' in x)
-# %%
-tamoxifen_mw_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/mw', lambda x: 'tamoxifen' in x)
-tamoxifen_ks_uniform2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/uniform_2t', lambda x: 'tamoxifen' in x)
-tamoxifen_ks_norm2t_ranking_dict = get_mw_ks_ranking_dicts('data/tamoxifen_l1000_ranker/ks/norm_2t', lambda x: 'tamoxifen' in x)
-#tamoxifen_count_ranking_dict = get_count_ranking_dict(lambda x: 'tamoxifen' in x)
-# %%
-plot_ranking_dicts({'Up-Down Top-N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.pdf')
-plot_ranking_dicts({'Up-Down Top-N': tamoxifen_ranking_dict, 'MW': tamoxifen_mw_ranking_dict, 'KS Uniform 2T': tamoxifen_ks_uniform2t_ranking_dict, 'KS Norm 2T': tamoxifen_ks_norm2t_ranking_dict}, save= fig_dir / 'fig4c.png')
-# %%
-plot_n_auc({"dexamethasone up-down": dex_ranking_dict, "thiazolidinedione up-down": thiazolidinedione_ranking_dict, "tamoxifen up-down": tamoxifen_ranking_dict, "dexamethasone up": dex_ranking_dict_up, "thiazolidinedione up": thiazolidinedione_ranking_dict_up, "tamoxifen up": tamoxifen_ranking_dict_up, "dexamethasone down": dex_ranking_dict_dn, "thiazolidinedione down": thiazolidinedione_ranking_dict_dn, "tamoxifen down": tamoxifen_ranking_dict_dn}, save= fig_dir / 'fig4d.pdf')
+dge[dge['adj.P.Val'] < 0.01].sort_values('logFC', ascending=False)
+CYTOR_up = dge[(dge['adj.P.Val'] < 0.01) & (dge['logFC'] > 0)].index
+CYTOR_down = dge[(dge['adj.P.Val'] < 0.05) & (dge['logFC'] < 0)].index
 # %%
 
+CYTOR_up_genes = [lookup(gene.split('.')[0]) for gene in CYTOR_up if lookup(gene.split('.')[0])]
+CYTOR_down_genes = [lookup(gene.split('.')[0]) for gene in CYTOR_down if lookup(gene.split('.')[0])]
+
+
+print("CYTOR KD DGE (Adj. P-value < 0.01) up genes:", len(CYTOR_up_genes), "down genes:", len(CYTOR_down_genes))
+
+# %%
+enrichment_df, consensus_df = enrich_l2s2_single_set(CYTOR_up_genes, first=12)
+consensus_df.sort_values('pvalueDown', inplace=True)
+import matplotlib.pyplot as plt
+consensus_df.set_index('perturbation', inplace=True, drop=True)
+consensus_df['log10(-adj. down p-value)'] = -np.log10(consensus_df['adjPvalueDown'])
+consensus_df[:3][::-1].plot.barh( y='log10(-adj. down p-value)', color='black', legend=False, figsize=(10, 5), fontsize=16)
+#plt.legend(False)
+plt.xlabel('log10(-Adj. P-Value Down)', fontsize=16)
+plt.ylabel('Consensus Compound', fontsize=16)
+plt.savefig(fig_dir /'fig4a.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig4a.png', dpi=300, bbox_inches='tight')
+# %%
+camptothecin_row = enrichment_df[enrichment_df['perturbation'] == 'camptothecin']
+camptothecin_id = camptothecin_row['id'].values[0]
+n_camptothecin = camptothecin_row['nGeneIds'].values[0]
+camptothecin_term = ' '.join(camptothecin_row['term'].values[0].split('_')[:4]) + "\n" + ' '.join(camptothecin_row['term'].values[0].split('_')[4:])
+
+cytor_camptothecin_overlap = get_overlap(CYTOR_up_genes, camptothecin_id)
+# %%
+
+import matplotlib_venn as venn
+plt.clf()
+venn.venn2(subsets=(len(CYTOR_up_genes), n_camptothecin, len(cytor_camptothecin_overlap)), set_labels=('CYTOR KD Up Genes', camptothecin_term))
+plt.savefig(fig_dir /'fig4b.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig4b.png', dpi=300, bbox_inches='tight')
+
+# %%
+cytor_camptothecin_overlap_userListId, shortId = enrichr_add_list(cytor_camptothecin_overlap, f'CYTOR KD Up Genes Overlap {camptothecin_term}')
+cytor_camptothecin_nature_nci = enrichr_get_top_results(cytor_camptothecin_overlap_userListId, 'NCI-Nature_2016', sleep=1)
+# %%
+cytor_camptothecin_nature_nci_plot = cytor_camptothecin_nature_nci[0:5]
+import seaborn as sns
+cytor_camptothecin_nature_nci_plot['-log10(adjusted_pvalue)'] = -np.log10(cytor_camptothecin_nature_nci_plot['adjusted_pvalue'])
+
+# Plot
+plt.figure(figsize=(11, 3))
+sns.barplot(data=cytor_camptothecin_nature_nci_plot, x='-log10(adjusted_pvalue)', y='term', color='lightblue', width=.8)
+
+# Add the term text inside the bars
+for index, row in cytor_camptothecin_nature_nci_plot.iterrows():
+    plt.text( 0.1, index, row['term'], color='black', ha='left', va='center')
+plt.yticks([])
+plt.xlabel("-log10(Adjusted P-value)")
+plt.ylabel("Term")
+plt.savefig(fig_dir /'fig4c.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig4c.png', dpi=300, bbox_inches='tight')
+# %%
+
+cytor_camptothecin_bioplanet = enrichr_get_top_results(cytor_camptothecin_overlap_userListId, 'BioPlanet_2019', sleep=1)
+# %%
+cytor_camptothecin_bioplanet_plot = cytor_camptothecin_bioplanet[0:5]
+cytor_camptothecin_bioplanet_plot['-log10(adjusted_pvalue)'] = -np.log10(cytor_camptothecin_bioplanet_plot['adjusted_pvalue'])
+
+# Plot
+plt.figure(figsize=(11, 3))
+sns.barplot(data=cytor_camptothecin_bioplanet_plot, x='-log10(adjusted_pvalue)', y='term', color='lightblue', width=.8)
+
+# Add the term text inside the bars
+for index, row in cytor_camptothecin_bioplanet_plot.iterrows():
+    plt.text( 0.1, index, row['term'], color='black', ha='left', va='center')
+plt.yticks([])
+plt.xlabel("-log10(Adjusted P-value)")
+plt.ylabel("Term")
+plt.savefig(fig_dir /'fig4d.pdf', dpi=300, bbox_inches='tight')
+plt.savefig(fig_dir /'fig4d.png', dpi=300, bbox_inches='tight')
+
+# %%
