@@ -49,6 +49,7 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
               nodes {
                 approved
                 count
+                moa
               }
             }
           }
@@ -57,7 +58,24 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
       }
       totalCount
       consensusCount
+      moasCount
       consensus {
+        drug
+        oddsRatio
+        pvalue
+        adjPvalue
+        approved
+        countSignificant
+        countInsignificant
+        countUpSignificant
+        pvalueUp
+        adjPvalueUp
+        oddsRatioUp
+        pvalueDown
+        adjPvalueDown
+        oddsRatioDown
+      }
+      moas {
         drug
         oddsRatio
         pvalue
@@ -93,7 +111,24 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
     ) {
       totalCount
       consensusCount
+      moasCount
       consensus {
+        drug
+        oddsRatio
+        pvalue
+        adjPvalue
+        approved
+        countSignificant
+        countInsignificant
+        countUpSignificant
+        pvalueUp
+        adjPvalueUp
+        oddsRatioUp
+        pvalueDown
+        adjPvalueDown
+        oddsRatioDown
+      }
+      moas {
         drug
         oddsRatio
         pvalue
@@ -131,6 +166,7 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
               nodes {
                 count
                 approved
+                moa
               }
             }
           }
