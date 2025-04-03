@@ -64,6 +64,7 @@ impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
             values: Vec::new(),
             terms: HashMap::new(),
             signature_pairs: SignaturePairs { pairs: Vec::new() }, // Empty initially
+            
         }
     }
 
