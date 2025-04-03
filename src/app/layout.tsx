@@ -107,7 +107,7 @@ export default function RootLayout({
       <head>{jsonld}</head>
       <ApolloWrapper>
         <RuntimeConfig>
-          <body className="min-h-screen flex flex-col bg-gradient-to-t from-blue-500 to-white dark:from-black dark:to-blue-900 dark:text-white">
+          <body className="min-h-screen flex flex-col bg-gradient-to-t from-blue-300 to-white dark:from-black dark:to-blue-900 dark:text-white">
             <header>
               <div className="navbar block text-center">
                 <div className="navbar-center">

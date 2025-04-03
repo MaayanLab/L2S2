@@ -1329,6 +1329,15 @@ export default function EnrichClientPage({
   });
   console.log(userGeneSet)
   const [modalGeneSet, setModalGeneSet] = React.useState<GeneSetModalT>();
+
+  const { data: userGeneSetInfo } = useFetchGeneInfoQuery({
+      skip: !dataset,
+      variables: {genes: userGeneSet?.userGeneSet?.genes?.filter((gene): gene is string => !!gene) || []}
+  });
+
+  console.log(userGeneSetInfo)
+
+  const nGenesIncluded = userGeneSetInfo?.geneMap2?.nodes.filter(g => g.geneInfo?.symbol).length
   return (
     <>
       <div className="flex flex-row gap-2 alert">
@@ -1348,7 +1357,7 @@ export default function EnrichClientPage({
         >
           {userGeneSet?.userGeneSet?.description || "Gene set"}
           {userGeneSet ? (
-            <> ({userGeneSet?.userGeneSet?.genes?.length ?? "?"} genes)</>
+            <> ({nGenesIncluded} of {userGeneSet?.userGeneSet?.genes?.length ?? "?"} submitted genes contained L2S2 background)</>
           ) : null}
         </label>
       </div>
