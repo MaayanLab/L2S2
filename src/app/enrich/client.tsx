@@ -60,22 +60,24 @@ function EnrichmentResults({
     dir: "",
     fda: "false",
     consensus: "false",
+    moas: "false",
     sort: "pvalue",
     ko: "false",
     topn: "1000",
     pvaluele: "0.05",
   });
   const [rawTerm, setRawTerm] = React.useState("");
-  const [topNSlider, setTopNSlider] = React.useState(1000);
+  const [topNSlider, setTopNSlider] = React.useState(10000);
   const [pvalueLeSlider, setPvalueLeSlider] = React.useState(0.05);
 
-  const { page, term, fda, consensus, sort, ko, topN, pvalueLe } =
+  const { page, term, fda, consensus, moas, sort, ko, topN, pvalueLe } =
     React.useMemo(
       () => ({
         page: queryString.page ? +queryString.page : 1,
         term: queryString.q ?? "",
         fda: queryString.fda === "true",
         consensus: queryString.consensus === "true",
+        moas: queryString.moas === "true",
         sort: queryString.sort,
         ko: queryString.ko === "true",
         topN: parseInt(queryString?.topn ?? "1000"),
@@ -97,6 +99,8 @@ function EnrichmentResults({
       pvalueLe: pvalueLe,
     },
   });
+
+  console.log(enrichmentResults)
 
   React.useEffect(() => {
     console.log(term);
@@ -129,7 +133,22 @@ function EnrichmentResults({
                 )}{" "}
                 consensus perturbations.
               </>
-            ) : (
+            ) : moas ? <>
+            After rummaging through <Stats show_gene_sets />.{" "}
+                <Image
+                  className="inline-block rounded"
+                  src="/images/LINCSearch_logo.png"
+                  width={50}
+                  height={100}
+                  alt="LINCSearch"
+                ></Image>{" "}
+                computed significance for{" "}
+                {Intl.NumberFormat("en-US", {}).format(
+                  enrichmentResults?.currentBackground?.enrich
+                    ?.moasCount || 0
+                )}{" "}
+                consensus MoAs.</>
+            : (
               <>
                 After rummaging through <Stats show_gene_sets />.{" "}
                 <Image
@@ -194,6 +213,7 @@ function EnrichmentResults({
                 q: rawTerm,
                 fda: queryString.fda,
                 consensus: "true",
+                moas: "false",
                 dir: queryString.dir,
                 sort: queryString.sort,
                 ko: queryString.ko,
@@ -206,6 +226,7 @@ function EnrichmentResults({
                 q: rawTerm,
                 fda: queryString.fda,
                 consensus: "false",
+                moas: "false",
                 dir: queryString.dir,
                 sort: queryString.sort,
                 ko: queryString.ko,
@@ -219,7 +240,44 @@ function EnrichmentResults({
               : "button btn btn-sm float-left mr-4"
           }
         >
-          Consensus
+          Consensus Drugs
+        </button>
+        <button
+          onClick={() => {
+            if (queryString.moas === "false")
+              setQueryString({
+                page: "1",
+                q: rawTerm,
+                fda: queryString.fda,
+                consensus: "false",
+                moas: "true",
+                dir: queryString.dir,
+                sort: queryString.sort,
+                ko: "false",
+                topn: queryString.topn,
+                pvaluele: queryString.pvaluele,
+              });
+            else
+              setQueryString({
+                page: "1",
+                q: rawTerm,
+                fda: queryString.fda,
+                consensus: queryString.consensus,
+                moas: "false",
+                dir: queryString.dir,
+                sort: queryString.sort,
+                ko: "false",
+                topn: queryString.topn,
+                pvaluele: queryString.pvaluele,
+              });
+          }}
+          className={
+            queryString.moas === "true"
+              ? "button btn btn-sm float-left mr-4 bg-purple-400 hover:bg-purple-600"
+              : "button btn btn-sm float-left mr-4"
+          }
+        >
+          Consensus MoAs
         </button>
 
         <button
@@ -230,6 +288,7 @@ function EnrichmentResults({
                 q: rawTerm,
                 fda: "false",
                 consensus: queryString.consensus,
+                moas: "false",
                 dir: queryString.dir,
                 ko: "true",
                 sort: queryString.sort,
@@ -242,6 +301,7 @@ function EnrichmentResults({
                 q: rawTerm,
                 fda: queryString.fda,
                 consensus: queryString.consensus,
+                moas: "false",
                 dir: queryString.dir,
                 ko: "false",
                 sort: queryString.sort,
@@ -335,7 +395,7 @@ function EnrichmentResults({
             DOWN
           </div>
         </div>
-        {consensus ? <div className="inline-flex items-center ml-5 transition-all accent-purple-500">
+        {(consensus || moas) ? <div className="inline-flex items-center ml-5 transition-all accent-purple-500">
           <label
             className="text-sm font-bold mr-3 tooltip inline-flex"
             htmlFor="default-range"
@@ -350,7 +410,7 @@ function EnrichmentResults({
               type="range"
               value={topNSlider}
               onChange={(evt) => setTopNSlider(Number(evt.target.value))}
-              max={20000}
+              max={50000}
               min={500}
               step={500}
               className="w-52 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
@@ -436,12 +496,12 @@ function EnrichmentResults({
         </form>
       </div>
       <div className="overflow-x-scroll">
-        {consensus ? (
+        {consensus || moas ? (
           <>
             <table className="table table-xs">
               <thead>
                 <tr className="text-left align-text-bottom">
-                  <th>Perturbation</th>
+                  <th>{consensus ? "Perturbation" : "MoA"}</th>
                   <th className="relative group">
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       Reflecting if there are more significant up or down
@@ -478,6 +538,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "pvalue_up",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -511,6 +572,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "odds_ratio_up",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -541,6 +603,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "pvalue_down",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -574,6 +637,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "odds_ratio_down",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -588,7 +652,7 @@ function EnrichmentResults({
                       Down <FaSortUp />
                     </span>
                   </th>
-                  <th>
+                  <th className={(moas || ko) ? "hidden" : ""}>
                     FDA
                     <br />
                     Approved
@@ -602,6 +666,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "odds_ratio",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -630,6 +695,7 @@ function EnrichmentResults({
                           q: rawTerm,
                           fda: queryString.fda,
                           dir: queryString.dir,
+                          moas: queryString.moas,
                           sort: "pvalue",
                           ko: queryString.ko,
                           topn: queryString.topn,
@@ -660,15 +726,18 @@ function EnrichmentResults({
                     </td>
                   </tr>
                 ) : null}
-                {enrichmentResults?.currentBackground?.enrich?.consensus?.flatMap(
+                {(moas 
+                    ? enrichmentResults?.currentBackground?.enrich?.moas 
+                    : enrichmentResults?.currentBackground?.enrich?.consensus
+                  )?.flatMap(
                   (enrichmentResult, genesetIndex) => {
                     var perturbation = enrichmentResult?.drug;
-                    if (perturbation?.includes(" "))
+                    if (perturbation?.includes(" ") && !moas)
                       perturbation = perturbation + " KO";
                     return (
                       <tr key={genesetIndex}>
                         <td>
-                          {!perturbation?.includes("KO") ? (
+                          {moas ? <span style={{textTransform: 'capitalize'}}>{perturbation}</span> : !perturbation?.includes("KO") ? (
                             <>
                               {perturbation}
                               <a
@@ -770,7 +839,7 @@ function EnrichmentResults({
                         <td>
                           {enrichmentResult?.oddsRatioDown?.toPrecision(3)}
                         </td>
-                        <td>{enrichmentResult?.approved ? "Yes" : "No"}</td>
+                        {(!moas && !ko) && <td>{enrichmentResult?.approved ? "Yes" : "No"}</td>}
                         <td>{enrichmentResult?.oddsRatio?.toPrecision(3)}</td>
                         <td className="hidden">
                           {enrichmentResult?.pvalue?.toPrecision(3)}
@@ -1125,6 +1194,7 @@ function EnrichmentResults({
                   page: `${page}`,
                   q: term,
                   consensus: queryString.consensus,
+                  moas: queryString.moas,
                   ko: queryString.ko,
                   dir: queryString.dir,
                   topn: queryString.topn,
@@ -1133,7 +1203,28 @@ function EnrichmentResults({
                 });
               }}
             />
-          ) : (
+          ) : moas ? (<Pagination
+            page={page}
+            totalCount={
+              enrichmentResults?.currentBackground?.enrich?.moasCount
+                ? enrichmentResults?.currentBackground?.enrich.moasCount
+                : undefined
+            }
+            pageSize={pageSize}
+            onChange={(page) => {
+              setQueryString({
+                page: `${page}`,
+                q: term,
+                consensus: queryString.consensus,
+                moas: queryString.moas,
+                ko: queryString.ko,
+                dir: queryString.dir,
+                topn: queryString.topn,
+                pvaluele: queryString.pvaluele,
+                fda: queryString.fda,
+              });
+            }}
+          />) : (
             <Pagination
               page={page}
               totalCount={
@@ -1147,6 +1238,7 @@ function EnrichmentResults({
                   page: `${page}`,
                   q: term,
                   consensus: queryString.consensus,
+                  moas: queryString.moas,
                   ko: queryString.ko,
                   dir: queryString.dir,
                   topn: queryString.topn,
