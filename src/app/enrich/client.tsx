@@ -819,6 +819,9 @@ function EnrichmentResults({
                   </span>
                 </th>
                 <th>
+                  MoA
+                </th>
+                <th>
                   FDA
                   <br />
                   Approved
@@ -939,6 +942,10 @@ function EnrichmentResults({
                     enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById
                       .nodes[0]?.approved || false;
 
+                  const moa =
+                      enrichmentResult?.geneSets.nodes[0].geneSetFdaCountsById
+                        .nodes[0]?.moa || "unknown";
+
                   const concentration =
                     enrichmentResult?.geneSets.nodes[0].term
                       .split("_")[5]
@@ -1055,6 +1062,7 @@ function EnrichmentResults({
                         )}
                       </td>
                       <td>{count}</td>
+                      <td>{moa}</td>
                       <td>{approved ? "Yes" : "No"}</td>
                       <td>
                         <label

@@ -1,5 +1,7 @@
 -- migrate:up
 
+drop function app_public_v2.paired_enrich_result_gene_set;
+
 create or replace function app_public_v2.paired_enrich_result_gene_set(paired_enrich_result app_public_v2.paired_enrich_result) returns setof app_public_v2.gene_set
 as $$
   select gs.*

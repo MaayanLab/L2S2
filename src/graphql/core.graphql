@@ -49,6 +49,7 @@ query EnrichmentQuery($genes: [String]!, $filterTerm: String = "", $offset: Int 
               nodes {
                 approved
                 count
+                moa
               }
             }
           }
@@ -131,6 +132,7 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
               nodes {
                 count
                 approved
+                moa
               }
             }
           }

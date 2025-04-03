@@ -48,7 +48,7 @@ struct Bitmap<B: Integer + Copy + Into<usize>> {
     columns: HashMap<Uuid, B>,
     columns_str: Vec<String>,
     values: Vec<(Uuid, SparseBitVec<B>)>,
-    terms: HashMap<Uuid, Vec<(Uuid, String, String, bool, i32, String)>>,
+    terms: HashMap<Uuid, Vec<(Uuid, String, String, bool, i32, String, String)>>,
     signature_pairs: SignaturePairs, // Store pairs persistently
 }
 
@@ -266,7 +266,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
         }
 
         // compute the index in memory
-        sqlx::query("select gs.id, gs.term, coalesce(gs.description, '') as description, gs.hash, gs.gene_ids, fda.approved as fda_approved, fda.count as count, fda.perturbation as pert from  app_public_v2.gene_set gs left join app_public_v2.gene_set_fda_counts fda on gs.id = fda.id;")
+        sqlx::query("select gs.id, gs.term, coalesce(gs.description, '') as description, gs.hash, gs.gene_ids, fda.approved as fda_approved, fda.count as count, fda.perturbation as pert, fda.moa as moa from  app_public_v2.gene_set gs left join app_public_v2.gene_set_fda_counts fda on gs.id = fda.id;")
             .fetch(&mut **db)
             .for_each(|row| {
                 let row = row.unwrap();
@@ -277,6 +277,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                 let fda_approved: bool = row.try_get::<bool, &str>("fda_approved").unwrap_or(false);
                 let count: i32 = row.try_get("count").unwrap_or(0);
                 let pert: String = row.try_get("pert").unwrap_or("").to_string();
+                let moa: String = row.try_get("moa").unwrap_or("").to_string();
                 if let Ok(gene_set_hash) = gene_set_hash {
                     if !bitmap.terms.contains_key(&gene_set_hash) {
                         let gene_ids: sqlx::types::Json<HashMap<String, sqlx::types::JsonValue>> = row.try_get("gene_ids").unwrap();
@@ -284,7 +285,7 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
                         let bitset = SparseBitVec::new(&bitmap.columns, &gene_ids);
                         bitmap.values.push((gene_set_hash, bitset));
                     }
-                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description, fda_approved, count, pert));
+                    bitmap.terms.entry(gene_set_hash).or_default().push((gene_set_id, term, description, fda_approved, count, pert, moa));
                 }
                 future::ready(())
             })
@@ -472,12 +473,13 @@ async fn query(
 
     let mut drug_significance_counts: HashMap<String, (usize, usize, usize, bool)> = HashMap::new();
     let mut drug_counts: HashMap<String, (usize, bool)> = HashMap::new();
+    let mut moa: HashMap<String, (usize, bool)> = HashMap::new();
 
     for result in (*results).iter().take(top_n) {
         if let Some((gene_set_hash, _gene_set)) = bitmap.values.get(result.index) {
             if let Some(terms) = bitmap.terms.get(gene_set_hash) {
                 // Iterate over the terms for the current gene set
-                for (_gene_set_id, gene_set_term, _description, fda_approved, count, pert) in terms {
+                for (_gene_set_id, gene_set_term, _description, fda_approved, count, pert, moa) in terms {
                     // Ensure `pert` is not empty before proceeding
                     if !pert.is_empty() {
                         // Increment the count for significant results
@@ -709,7 +711,7 @@ async fn query(
     if let Some(sortby) = sortby {
         match sortby.as_str() {
             "pvalue" => {
-                consensus_results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
+                consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
                 results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
             },
             "odds_ratio" => {
@@ -1173,7 +1175,7 @@ async fn query_pairs(
     if let Some(sortby) = sortby {
         match sortby.as_str() {
             "pvalue" => {
-                consensus_results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
+                consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
             },
             "odds_ratio" => {
                 consensus_results.sort_unstable_by(|a, b| b.odds_ratio.partial_cmp(&a.odds_ratio).unwrap_or(std::cmp::Ordering::Equal));
