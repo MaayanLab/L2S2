@@ -30,7 +30,16 @@ export default function UserManual() {
                     className="underline cursor-pointer"
                     shallow
                   >
-                    Gene Set Search
+                    Single Gene Set Search
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="#up-down-gene-set-search"
+                    className="underline cursor-pointer"
+                    shallow
+                  >
+                    Up & Down Gene Set Search
                   </Link>
                 </li>
                 <li>
@@ -55,8 +64,53 @@ export default function UserManual() {
             </div>
           </div>
           <br></br>
+          <h2 className="title text-xl font-medium mb-3" id="getting-started">
+            Getting Started
+          </h2>
+          <p>
+            L2S2 is a web application that allows users to search for matching gene sets created from the LINCS L1000 data. The application provides
+            several features, including single gene set search, up and down gene set search, term search, and an API for programmatic access.
+            To get started try submitting the included examples on the home page:
+          </p>
+          <div className="flex flex-row">
+          <Image
+            src="/images/getting-started-1.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
+          <Image
+            src="/images/getting-started-2.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          /></div>
+          <p>
+            Once submitting either of the examples, a results table will be returned sorted by the most significantly overlapping gene sets or signatures. From here, you can filter for FDA-approved drugs, for the directionality of the gene sets or signatures, as well as identify consensus mechanisms of action (MoAs), and consensus compounds seen across cell lines, time points and concentrations:
+          </p>
+          <div className="flex flex-row">
+          <Image
+            src="/images/gene-set-search-2.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
+          <Image
+            src="/images/gene-set-search-11.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          /></div>
+          <p>
+            Please explore the features in more depth below:
+          </p>
+          <br></br>
           <h2 className="title text-xl font-medium mb-3" id="gene-set-search">
-            1.1 Gene Set Search
+            1.1 Single Gene Set Search
           </h2>
           <p>
           The Gene Set Search page enables users to search the L2S2 database for gene sets that match their query gene set. Similarity to gene sets contained within the L2S2 database with the query gene set is measured with Fisher&apos;s exact test. Any significantly overlapping gene sets are returned to the user along with their accompanying metadata. User query gene sets can be pasted or typed into the input form with each gene on a new line, or the user may upload a file containing genes where the genes are listed with new line, tab, or comma separators:
@@ -130,11 +184,56 @@ export default function UserManual() {
             alt={""}
             className="border rounded-lg mx-auto my-4"
           />
+            <p>
+          To identify the most common mechanisms of action and their directionality similar to the consensus compound feature, the consensus mechanism of action button can be selected. This will compute the number of significant and insignificant signatures corresponding to that mechanism of action and generate p-values for the direction of the signature using the number of significant up and down, and insignificant up and down terms for that mechanism of action:
+          </p>
+          <Image
+            src="/images/gene-set-search-8.png"
+            width={600}
+            height={500}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
+          
+            <h2
+            className="title text-xl font-medium mb-3 mt-10"
+            id="up-down-gene-set-search"
+          >
+            1.2 Up & Down Gene Set Search
+          </h2>
+          <p>
+          The up and down gene set search functionality enables users to search the L2S2 database for gene set signature pairs that most significantly mimic or reverse the expression of the submitted up- and down-gene set signature. A Fisher&apos;s exact test is also used to assess the significance of these results, specifically measuring a mimicker overlap (up L2S2 gene set & up user gene set + down L2S2 gene set & down user gene set) and reverser overlap (up L2S2 gene set & down user gene set + down L2S2 gene set & up user gene set). Any significantly overlapping mimicker or reverser signature is returned to the user along with their accompanying metadata. Similarly to the single gene set search, user query gene sets can be pasted or typed into the two input boxes with each gene on a new line, or the user may upload a file containing genes where the genes are listed with new line, tab, or comma separators after selecting the up & down gene set option on the input form:
+          </p>
+          <div className="flex flex-row">
+          <Image
+            src="/images/gene-set-search-9.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
+          <Image
+            src="/images/gene-set-search-10.png"
+            width={500}
+            height={400}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          /></div>
+          <p>
+            The gene set search page is very similar to that of the single gene set search page, displaying the enrichment statistics, button filters, and mimicker and reverser overlaps which can be opened as modals and further explored:
+          </p>
+          <Image
+            src="/images/gene-set-search-11.png"
+            width={600}
+            height={500}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
           <h2
             className="title text-xl font-medium mb-3 mt-10"
             id="metadata-search"
           >
-            1.2 Term Search
+            1.4 Term Search
           </h2>
           L2S2 also provides direct metadata search of the L1000 signatures. Paginated results are returned with accompanying metadata of the returned signatures:
           <Image
@@ -144,8 +243,7 @@ export default function UserManual() {
             alt={""}
             className="border rounded-lg mx-auto my-4"
           />
-         These results can also be filtered using the search bar at the top right of the table and the results table can be downloaded in a tab-delimited format:
-
+         These results can also be further filtered using the search bar at the top right of the table:
           <Image
             src="/images/metadata-search-2.png"
             width={600}
@@ -153,8 +251,16 @@ export default function UserManual() {
             alt={""}
             className="border rounded-lg mx-auto my-4"
           />
+          Term search results, formatted as a gene matrix transpose (GMT), or a metadata table can be downloaded in a tab-delimited format as well:
+          <Image
+            src="/images/metadata-search-3.png"
+            width={600}
+            height={500}
+            alt={""}
+            className="border rounded-lg mx-auto my-4"
+          />
           <h2 className="title text-xl font-medium mb-3 mt-10" id="api">
-            1.4 API
+            1.5 API
           </h2>
           <p>
             {" "}
@@ -234,7 +340,7 @@ export default function UserManual() {
             </pre>
           </div>
           <br />
-          <p className="text-white">
+          <p className="">
             L2S2 is actively being developed by{" "}
             <Link
               className="underline cursor"
