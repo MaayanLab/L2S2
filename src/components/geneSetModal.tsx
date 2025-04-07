@@ -71,7 +71,6 @@ export default function GeneSetModal({
   const [addUserGeneSetMutation, { loading, error }] =
     useAddUserGeneSetMutation();
 
-  console.log(geneset)
   const genes = React.useMemo(
     () =>
       geneset

@@ -533,3 +533,24 @@ query LatestRelease {
     }
   }
 }
+
+query TermSearchGeneSets($filterTerm: [String]!) {
+  geneSetTermSearch(terms: $filterTerm) {
+    nodes {
+      term
+      genes {
+        nodes {
+          symbol
+        }
+      }
+    }
+    totalCount
+    pageInfo {
+          endCursor
+          hasNextPage
+          hasPreviousPage
+          startCursor
+        }
+  }
+  
+}

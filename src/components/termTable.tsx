@@ -1,23 +1,22 @@
 import React from 'react'
-import LinkedTerm from '@/components/linkedTerm';
 import { useViewGeneSetQuery } from '@/graphql';
 import GeneSetModal from '@/components/geneSetModal';
 import useQsState from '@/utils/useQsState';
 import Pagination from '@/components/pagination';
-import blobTsv from '@/utils/blobTsv';
-import clientDownloadBlob from '@/utils/clientDownloadBlob';
+import TermDownloadButton from '@/components/termDownloadButton';
+
 
 const pageSize = 10
 
 export default function TermTable({ terms }: { terms: { __typename?: "GeneSet" | undefined; term?: string | null | undefined; id?: any; nGeneIds?: number | null | undefined; }[] }) {
   const [queryString, setQueryString] = useQsState({ page: '1', f: '' })
-  const { page, searchTerm } = React.useMemo(() => ({ page: queryString.page ? +queryString.page : 1, searchTerm: queryString.f ?? '' }), [queryString])
+  const { page, searchTerm, tableSearch } = React.useMemo(() => ({ page: queryString.page ? +queryString.page : 1, searchTerm: queryString.q ?? '', tableSearch: queryString.f || '' }), [queryString])
 
   const dataFiltered = React.useMemo(() =>
     terms.filter(el => {
-      return (el?.term?.toLowerCase().includes(searchTerm.toLowerCase()))
+      return (el?.term?.toLowerCase().includes(tableSearch.toLowerCase()))
     }),
-  [terms, searchTerm])
+  [terms, tableSearch])
 
   const [geneSetId, setGeneSetId] = React.useState(terms[0].id)
   const [currTerm, setCurrTerm] = React.useState(terms[0].term)
@@ -37,9 +36,9 @@ export default function TermTable({ terms }: { terms: { __typename?: "GeneSet" |
           <input
             type="text"
             className="input input-bordered"
-            value={searchTerm}
+            value={tableSearch}
             onChange={evt => {
-              setQueryString({ page: '1', f: evt.currentTarget.value })
+              setQueryString({ page: '1', f: evt.currentTarget.value, q: queryString.q })
             }}
           />
           <div className="tooltip" data-tip="Search results">
@@ -58,18 +57,7 @@ export default function TermTable({ terms }: { terms: { __typename?: "GeneSet" |
             >&#x232B;</button>
           </div>
           <div className="tooltip" data-tip="Download results">
-            <button
-              type="button"
-              className="btn join-item font-bold text-2xl pb-1"
-              onClick={evt => {
-                if (!dataFiltered) return
-                const blob = blobTsv(['term', 'nGenes'], dataFiltered, item => ({
-                  term: item.term,
-                  nGenes: item.nGeneIds,
-                }))
-                clientDownloadBlob(blob, 'results.tsv')
-              }}
-            >&#x21E9;</button>
+            <TermDownloadButton dataFiltered={dataFiltered} filterTerm={searchTerm || ""} />
           </div>
         </div>
         <table className="table table-xs">
