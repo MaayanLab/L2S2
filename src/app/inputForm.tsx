@@ -88,6 +88,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
         <div className={classNames("alert alert-error", { 'hidden': !error })}>{error?.message ?? null}</div>
         {genes.length > 3000 && <div className="alert alert-error">Gene set is too large. Please enter a gene set with less than 3000 genes.</div>}
       </form>
+      <p className='font-semibold text-sm text-center my-2'>Or search for mimickers and reversers:</p>
       <button className='btn btn-outline text-xs p-2 m-2' onClick={() => setInputSingle(false)}>SWITCH TO UP/DOWN SETS INPUT</button>
     </>
   )
