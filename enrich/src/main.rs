@@ -1160,7 +1160,7 @@ async fn query_pairs(
     let n_insignificant_drugs = total_terms - n_significant_drugs;
 
     let mut consensus_results: Vec<DrugConsensusResult> = drug_significance_counts
-        .iter() // Use Rayon parallel iterator
+        .par_iter() // Use Rayon parallel iterator
         .map(|(drug, (count_sig, count_insig, sig_up, approved))| {
             // Construct the 2x2 contingency table
             let a = *count_sig; // Drug appears in significant results
@@ -1270,7 +1270,7 @@ async fn query_pairs(
     }
 
     let mut moa_consensus_results: Vec<DrugConsensusResult> = moa_signifigance_counts
-    .iter() // Use Rayon parallel iterator
+    .par_iter() // Use Rayon parallel iterator
     .map(|(moa, (count_sig, count_insig, sig_up))| {
         // Construct the 2x2 contingency table
         let a = *count_sig; // Drug appears in significant results
