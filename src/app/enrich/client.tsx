@@ -63,7 +63,7 @@ function EnrichmentResults({
     moas: "false",
     sort: "pvalue",
     ko: "false",
-    topn: "1000",
+    topn: "10000",
     pvaluele: "0.05",
   });
   const [rawTerm, setRawTerm] = React.useState("");
@@ -80,7 +80,7 @@ function EnrichmentResults({
         moas: queryString.moas === "true",
         sort: queryString.sort,
         ko: queryString.ko === "true",
-        topN: parseInt(queryString?.topn ?? "1000"),
+        topN: parseInt(queryString?.topn ?? "10000"),
         pvalueLe: parseFloat(queryString?.pvaluele ?? "0.05"),
       }),
       [queryString]

@@ -1,14 +1,23 @@
+import { url } from "inspector";
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-export default function DownloadButton({ queryString }: { queryString: Record<string, string | null> }) {
+export default function DownloadButtonPair(
+  { queryString, datasetUp, datasetDown} : 
+  { queryString: Record<string, string | null>;
+    datasetUp: string;
+    datasetDown: string; 
+  }) {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [maxTotal, setMaxTotal] = useState<number>(1000);
 
+  console.log("queryString", datasetUp, datasetDown)
+
   const handleDownload = async () => {
     setLoading(true);
     setShowModal(false);
-    const downloadUrl = `/enrich/download?dataset=${queryString.dataset}&q=${queryString.q}&fda=${queryString.fda}&consensus=${queryString.consensus}&dir=${queryString.dir}&ko=${queryString.ko}&sort=${queryString.sort}&topn=${queryString.topN}&moas=${queryString.moas}&maxTotal=${maxTotal}`;
+    const downloadUrl = `/enrichpair/download?datasetup=${datasetUp}&datasetdown=${datasetDown}&q=${queryString.q}&fda=${queryString.fda}&consensus=${queryString.consensus}&dir=${queryString.dir}&ko=${queryString.ko}&sort=${queryString.sort}&topn=${queryString.topN}&moas=${queryString.moas}&maxTotal=${maxTotal}`;
 
     try {
       const response = await fetch(downloadUrl);

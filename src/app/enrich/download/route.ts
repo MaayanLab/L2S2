@@ -1,13 +1,11 @@
 import {
-  EnrichmentQueryDocument,
-  EnrichmentQueryQuery,
   FetchUserGeneSetDocument,
   FetchUserGeneSetQuery,
 } from "@/graphql";
 import { getClient } from "@/lib/apollo/client";
 import ensureArray from "@/utils/ensureArray";
-import partition from "@/utils/partition";
 import streamTsv from "@/utils/streamTsv";
+import {paginatedNodeGenerator, paginatedConsensusGenerator, paginatedMoAsGenerator} from "@/utils/paginatedGenerators";
 
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
@@ -15,9 +13,13 @@ export async function GET(request: Request) {
   const dataset = searchParams.get("dataset");
   const term = searchParams.get("q") || "";
   const consensusFilter = searchParams.get("consensus") || "false";
+  const MoAsFilter = searchParams.get("moas") || "false";
   const filterKo = searchParams.get("ko") || "false";
+  const sort = searchParams.get("sort") || "pvalue";
   const filterFda = searchParams.get("fda") || "false";
   const dir = searchParams.get("dir") || "";
+  const topN = searchParams.get("topn") || "1000";
+  const maxTotal = searchParams.get("maxTotal") || "100000";
 
   const { data: userGeneSet, error: userGeneSetError } =
     await getClient().query<FetchUserGeneSetQuery>({
@@ -28,128 +30,67 @@ export async function GET(request: Request) {
   const genes = ensureArray(userGeneSet.userGeneSet?.genes)
     .filter((gene): gene is string => !!gene)
     .map((gene) => gene.toUpperCase());
-  const { data: enrichmentResults, error: enrichmentResultsError } =
-    await getClient().query<EnrichmentQueryQuery>({
-      query: EnrichmentQueryDocument,
-      variables: {
-        genes,
-        filterTerm: term + " " + dir,
-        filterFda: filterFda === "true",
-        filterKo: filterKo === "true",
-        offset: 0,
-        first: null,
-      },
-    });
-  if (enrichmentResultsError) throw new Error(enrichmentResultsError.message);
-  const nodes = enrichmentResults.currentBackground?.enrich?.nodes;
-  const consensus = enrichmentResults.currentBackground?.enrich?.consensus;
-  if (!nodes) throw new Error("No results");
-  if (!consensus) throw new Error("No consensus");
-  if (consensusFilter === "true") {
+  if (genes.length === 0) {
+    return new Response("No genes found", { status: 400 });
+  } else if (consensusFilter === "true") {
     return new Response(
       streamTsv(
         [
-          "drug",
-          "countSig",
-          "countInsig",
-          "countUpSig",
-          "oddsRatio",
-          "pvalue",
-          "adjPvalue",
-          "pvalueUp",
-          "adjPvalueUp",
-          "oddsRatioUp",
-          "pvalueDown",
-          "adjPvalueDown",
-          "oddsRatioDown",
+            "drug",
+            "countSig",
+            "countInsig",
+            "countUpSig",
+            "countDownSig",
+            "oddsRatio",
+            "pvalueUp",
+            "adjPvalueUp",
+            "oddsRatioUp",
+            "pvalueDown",
+            "adjPvalueDown",
+            "oddsRatioDown",
         ],
-        consensus?.map((res) => {
-          return {
-            drug: res?.drug,
-            countSig: res?.countSignificant,
-            countInsig: res?.countInsignificant,
-            countUpSig: res?.countUpSignificant,
-            countDownSig:
-              (res?.countSignificant || 0) - (res?.countUpSignificant || 0),
-            oddsRatio: res?.oddsRatio,
-            pvalue: res?.pvalue,
-            adjPvalue: res?.adjPvalue,
-            pvalueUp: res?.pvalueUp,
-            adjPvalueUp: res?.adjPvalueUp,
-            oddsRatioUp: res?.oddsRatioUp,
-            pvalueDown: res?.pvalueDown,
-            adjPvalueDown: res?.adjPvalueDown,
-            oddsRatioDown: res?.oddsRatioDown,
-          };
-        }),
-        (item) => {
-          if (!item?.drug) return;
-          return {
-            drug: item.drug,
-            countSig: item.countSig,
-            countInsig: item.countInsig,
-            countUpSig: item.countUpSig,
-            countDownSig: item.countDownSig,
-            oddsRatio: item.oddsRatio,
-            pvalue: item.pvalue,
-            adjPvalue: item.adjPvalue,
-            pvalueUp: item.pvalueUp,
-            adjPvalueUp: item.adjPvalueUp,
-            oddsRatioUp: item.oddsRatioUp,
-            pvalueDown: item.pvalueDown,
-            adjPvalueDown: item.adjPvalueDown,
-            oddsRatioDown: item.oddsRatioDown,
-          };
-        }),
-        {
-          headers: {
-            "Content-Type": "text/tab-separated-values",
-          },
-        }
-    );
-  } else {
-    
-    return new Response(
-      streamTsv(
-        [
-          "term",
-          "geneSetSize",
-          "nOverlap",
-          "oddsRatio",
-          "pvalue",
-          "adjPvalue",
-          "count",
-          "approved",
-          "geneSetHash",
-        ],
-        nodes.flatMap((node) =>
-          node?.geneSets.nodes.map((geneSet) => ({
-            geneSetHash: node.geneSetHash,
-            geneSet,
-            pvalue: node.pvalue,
-            adjPvalue: node.adjPvalue,
-            oddsRatio: node.oddsRatio,
-            count: node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.count || 1,
-            approved:
-              node.geneSets.nodes[0].geneSetFdaCountsById.nodes[0]?.approved?.toString() ||
-              "",
-            nOverlap: node.nOverlap,
-          }))
+        paginatedConsensusGenerator(
+          genes,
+          term + " " + dir,
+          filterFda === "true",
+          filterKo === "true",
+          parseInt(topN),
+          sort
         ),
-        (item) => {
-          if (!item?.geneSet) return;
-          return {
-            term: item.geneSet.term,
-            geneSetSize: item.geneSet.nGeneIds,
-            nOverlap: item.nOverlap,
-            oddsRatio: item.oddsRatio,
-            pvalue: item.pvalue,
-            adjPvalue: item.adjPvalue,
-            count: item.count,
-            approved: item.approved,
-            geneSetHash: item.geneSetHash,
-          };
-        }
+        (item) => item
+      ),
+      {
+        headers: {
+          "Content-Type": "text/tab-separated-values",
+        },
+      }
+    );
+  } else if (MoAsFilter === "true") {
+    return new Response(
+      streamTsv(
+        [
+            "drug",
+            "countSig",
+            "countInsig",
+            "countUpSig",
+            "countDownSig",
+            "oddsRatio",
+            "pvalueUp",
+            "adjPvalueUp",
+            "oddsRatioUp",
+            "pvalueDown",
+            "adjPvalueDown",
+            "oddsRatioDown",
+        ],
+        paginatedMoAsGenerator(
+          genes,
+          term + " " + dir,
+          filterFda === "true",
+          filterKo === "true",
+          parseInt(topN),
+          sort
+        ),
+        (item) => item
       ),
       {
         headers: {
@@ -158,5 +99,38 @@ export async function GET(request: Request) {
       }
     );
   }
+  else {
+      return new Response(
+        streamTsv(
+          [
+            "term",
+            "geneSetSize",
+            "moa",
+            "nOverlap",
+            "oddsRatio",
+            "pvalue",
+            "adjPvalue",
+            "count",
+            "approved",
+            "geneSetHash",
+          ],
+          paginatedNodeGenerator(
+            genes,
+            term + " " + dir,
+            filterFda === "true",
+            filterKo === "true",
+            parseInt(topN),
+            sort,
+            parseInt(maxTotal)
+          ),
+          (item) => item
+        ),
+        {
+          headers: {
+            "Content-Type": "text/tab-separated-values",
+          },
+        }
+      );
+    }
   
 }

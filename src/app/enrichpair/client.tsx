@@ -11,7 +11,7 @@ import {
 import ensureArray from "@/utils/ensureArray";
 import Loading from "@/components/loading";
 import Pagination from "@/components/pagination";
-import DownloadButton from "@/components/downloadButton";
+import DownloadButtonPair from "@/components/downloadButtonPair";
 import useQsState from "@/utils/useQsState";
 import Stats from "../stats";
 import Image from "next/image";
@@ -55,10 +55,14 @@ function EnrichmentResults({
   userGeneSetUp,
   userGeneSetDown,
   setModalGeneSet,
+  datasetUp,
+  datasetDown
 }: {
   userGeneSetUp?: FetchUserGeneSetQuery;
   userGeneSetDown?: FetchUserGeneSetQuery;
   setModalGeneSet: React.Dispatch<React.SetStateAction<GeneSetModalT>>;
+  datasetUp: string;
+  datasetDown: string;
 }) {
 
   
@@ -87,7 +91,7 @@ function EnrichmentResults({
     moas: "false",
     sort: "pvalue_mimic",
     ko: "false",
-    topn: "1000",
+    topn: "10000",
     pvaluele: "0.05",
   });
   const [rawTerm, setRawTerm] = React.useState("");
@@ -104,7 +108,7 @@ function EnrichmentResults({
         moas: queryString.moas === "true",
         sort: queryString.sort,
         ko: queryString.ko === "true",
-        topN: parseInt(queryString?.topn ?? "1000"),
+        topN: parseInt(queryString?.topn ?? "10000"),
         pvalueLe: parseFloat(queryString?.pvaluele ?? "0.05"),
       }),
       [queryString]
@@ -133,48 +137,63 @@ function EnrichmentResults({
   return (
     <div className="flex flex-col gap-2 my-2">
       <h2 className="text-md font-bold">
-        {!enrichmentResults?.currentBackground?.pairedEnrich && !error ? (
-          <>
-            Rummaging through <Stats show_gene_sets />.
-          </>
-        ) : (
-          <>
-            {consensus ? (
-              <>
-                After rummaging through <Stats show_gene_sets />.{" "}
-                <Image
-                  className="inline-block rounded"
-                  src="/images/LINCSearch_logo.png"
-                  width={50}
-                  height={100}
-                  alt="LINCSearch"
-                ></Image>{" "}
-                computed significance for{" "}
-                {Intl.NumberFormat("en-US", {}).format(
-                  enrichmentResults?.currentBackground?.pairedEnrich
-                    ?.consensusCount || 0
-                )}{" "}
-                consensus perturbations.
-              </>
-            ) : (
-              <>
-                After rummaging through <Stats show_gene_sets />.{" "}
-                <Image
-                  className="inline-block rounded"
-                  src="/images/LINCSearch_logo.png"
-                  width={50}
-                  height={100}
-                  alt="LINCSearch"
-                ></Image>{" "}
-                found{" "}
-                {Intl.NumberFormat("en-US", {}).format(
-                  enrichmentResults?.currentBackground?.pairedEnrich?.totalCount || 0
-                )}{" "}
-                statistically significant matches.
-              </>
-            )}
-          </>
-        )}
+         {!enrichmentResults?.currentBackground?.pairedEnrich && !error ? (
+                  <>
+                    Rummaging through <Stats show_gene_sets />.
+                  </>
+                ) : (
+                  <>
+                    {consensus ? (
+                      <>
+                        After rummaging through <Stats show_gene_sets />.{" "}
+                        <Image
+                          className="inline-block rounded"
+                          src="/images/LINCSearch_logo.png"
+                          width={50}
+                          height={100}
+                          alt="LINCSearch"
+                        ></Image>{" "}
+                        computed significance for{" "}
+                        {Intl.NumberFormat("en-US", {}).format(
+                          enrichmentResults?.currentBackground?.pairedEnrich
+                            ?.consensusCount || 0
+                        )}{" "}
+                        consensus perturbations.
+                      </>
+                    ) : moas ? <>
+                    After rummaging through <Stats show_gene_sets />.{" "}
+                        <Image
+                          className="inline-block rounded"
+                          src="/images/LINCSearch_logo.png"
+                          width={50}
+                          height={100}
+                          alt="LINCSearch"
+                        ></Image>{" "}
+                        computed significance for{" "}
+                        {Intl.NumberFormat("en-US", {}).format(
+                          enrichmentResults?.currentBackground?.pairedEnrich
+                            ?.moasCount || 0
+                        )}{" "}
+                        consensus MoAs.</>
+                    : (
+                      <>
+                        After rummaging through <Stats show_gene_sets />.{" "}
+                        <Image
+                          className="inline-block rounded"
+                          src="/images/LINCSearch_logo.png"
+                          width={50}
+                          height={100}
+                          alt="L2S2"
+                        ></Image>{" "}
+                        found{" "}
+                        {Intl.NumberFormat("en-US", {}).format(
+                          enrichmentResults?.currentBackground?.pairedEnrich?.totalCount || 0
+                        )}{" "}
+                        statistically significant matches.
+                      </>
+                    )}
+                  </>
+                )}
       </h2>
       <div className="flex-row">
         <button
@@ -507,7 +526,7 @@ function EnrichmentResults({
               &#x232B;
             </button>
           </div>
-          <DownloadButton queryString={queryString}></DownloadButton>
+          <DownloadButtonPair queryString={queryString} datasetDown={datasetDown} datasetUp={datasetUp}></DownloadButtonPair>
         </form>
       </div>
       <div className="overflow-x-scroll">
@@ -1488,6 +1507,8 @@ export default function EnrichClientPage({
         userGeneSetUp={userGeneSetUp}
         userGeneSetDown={userGeneSetDown}
         setModalGeneSet={setModalGeneSet}
+        datasetUp={datasetUp}
+        datasetDown={datasetDown}
       />
       <GeneSetModalWrapper
         modalGeneSet={modalGeneSet}
