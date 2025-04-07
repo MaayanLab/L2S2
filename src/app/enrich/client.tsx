@@ -1327,7 +1327,7 @@ export default function EnrichClientPage({
     skip: !dataset,
     variables: { id: dataset },
   });
-  console.log(userGeneSet)
+
   const [modalGeneSet, setModalGeneSet] = React.useState<GeneSetModalT>();
 
   const { data: userGeneSetInfo } = useFetchGeneInfoQuery({

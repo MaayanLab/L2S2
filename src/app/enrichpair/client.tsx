@@ -1434,6 +1434,7 @@ export default function EnrichClientPage({
 }) {
   const datasetUp = ensureArray(searchParams.dataset)[0];
   const datasetDown = ensureArray(searchParams.dataset)[1];
+
   const { data: userGeneSetUp } = useFetchUserGeneSetQuery({
     skip: !datasetUp,
     variables: { id: datasetUp },
@@ -1444,6 +1445,19 @@ export default function EnrichClientPage({
     variables: { id: datasetDown },
   });
   const [modalGeneSet, setModalGeneSet] = React.useState<GeneSetModalT>();
+
+  const allGenes = userGeneSetDown?.userGeneSet?.genes?.filter((gene): gene is string => !!gene).concat(
+    userGeneSetUp?.userGeneSet?.genes?.filter((gene): gene is string => !!gene) || []
+  )
+
+    const { data: userGeneSetInfo } = useFetchGeneInfoQuery({
+        skip: !datasetDown,
+        variables: {genes: allGenes || []}
+    });
+
+    console.log(userGeneSetInfo)
+  
+    const nGenesIncluded = userGeneSetInfo?.geneMap2?.nodes.filter(g => g.geneInfo?.symbol).length
   return (
     <>
       <div className="flex flex-row gap-2 alert">
@@ -1466,7 +1480,7 @@ export default function EnrichClientPage({
         >
           {(userGeneSetUp && userGeneSetDown) ? (userGeneSetUp?.userGeneSet?.description + " & " + userGeneSetDown?.userGeneSet?.description) : "Up & Down Gene Sets"}
           {userGeneSetUp ? (
-            <> ({userGeneSetUp?.userGeneSet?.genes?.length ?? "?"} genes)</>
+            <> ({nGenesIncluded} of {(userGeneSetUp?.userGeneSet?.genes?.length || 0) + (userGeneSetDown?.userGeneSet?.genes?.length || 0)} submitted genes contained in L2S2 background)</>
           ) : null}
         </label>
       </div>
