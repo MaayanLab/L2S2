@@ -52,8 +52,8 @@ export default function InputFormUpDown({setInputSingle} : {setInputSingle:  Rea
           onClick={() => {
             setRawGenesUp(example.genes.join('\n'))
             setRawGenesDown(example.downGenes.join('\n'))
-            setUpDescription('Consensus Dexamethasone Up')
-            setDownDescription('Consensus Dexamethasone Down')
+            setUpDescription('GSE48328 Dexamethasone Up')
+            setDownDescription('GSE48328 Dexamethasone Down')
           }}
         >example</a>.
       </p>

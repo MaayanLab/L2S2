@@ -47,7 +47,7 @@ export default function InputForm({setInputSingle} : {setInputSingle:  React.Dis
           className="font-bold cursor-pointer"
           onClick={() => {
             setRawGenes(example.genes.join('\n'))
-            setDescription("Consensus Dexamethasone Up")
+            setDescription("GSE48328 Dexamethasone Up")
           }}
         >example</a>.
       </p>
