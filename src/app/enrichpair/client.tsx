@@ -589,10 +589,24 @@ function EnrichmentResults({
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       Mimicker p-values adjusted using the Benjamini-Hochberg method
                     </div>
-                    AdjPValue
-                    <br />
-                    <span className="inline-flex">
-                    Mimicker
+                    <span
+                      className="flex align-text-top cursor-pointer"
+                      onClick={() =>
+                        setQueryString({
+                          page: "1",
+                          q: rawTerm,
+                          fda: queryString.fda,
+                          dir: queryString.dir,
+                          sort: "adj_pvalue_up",
+                          ko: queryString.ko,
+                          topn: queryString.topn,
+                          pvaluele: queryString.pvaluele,
+                        })
+                      }
+                    >
+                      AdjPValue
+                      <br />
+                      Mimicker <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -652,10 +666,24 @@ function EnrichmentResults({
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       Down p-values adjusted using the Benjamini-Hochberg method
                     </div>
-                    AdjPValue
-                    <br />
-                    <span className="inline-flex">
-                    Reverser
+                    <span
+                      className="flex align-text-top cursor-pointer"
+                      onClick={() =>
+                        setQueryString({
+                          page: "1",
+                          q: rawTerm,
+                          fda: queryString.fda,
+                          dir: queryString.dir,
+                          sort: "adj_pvalue_down",
+                          ko: queryString.ko,
+                          topn: queryString.topn,
+                          pvaluele: queryString.pvaluele,
+                        })
+                      }
+                    >
+                      AdjPValue
+                      <br />
+                      Reverser <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -989,8 +1017,23 @@ function EnrichmentResults({
                     Adjusted P-value computed using the Benjamini-Hochberg
                     procedure
                   </div>
-                  <span className="inline-flex">
-                    AdjPValue<br />Mimicker
+                  <span
+                    className="flex align-text-top cursor-pointer"
+                    onClick={() =>
+                      setQueryString({
+                        page: "1",
+                        q: rawTerm,
+                        fda: queryString.fda,
+                        dir: queryString.dir,
+                        sort: "adj_pvalue_mimic",
+                        ko: queryString.ko,
+                        topn: queryString.topn,
+                        pvaluele: queryString.pvaluele,
+                        consensus: queryString.consensus,
+                      })
+                    }
+                  >
+                    AdjPValue<br/>Mimicker <FaSortUp />
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
@@ -1049,8 +1092,23 @@ function EnrichmentResults({
                     Adjusted P-value computed using the Benjamini-Hochberg
                     procedure
                   </div>
-                  <span className="inline-flex">
-                    AdjPValue<br />Reverser
+                  <span
+                    className="flex align-text-top cursor-pointer"
+                    onClick={() =>
+                      setQueryString({
+                        page: "1",
+                        q: rawTerm,
+                        fda: queryString.fda,
+                        dir: queryString.dir,
+                        sort: "adj_pvalue_reverse",
+                        ko: queryString.ko,
+                        topn: queryString.topn,
+                        pvaluele: queryString.pvaluele,
+                        consensus: queryString.consensus,
+                      })
+                    }
+                  >
+                    AdjPValue<br />Reverser <FaSortUp />
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>

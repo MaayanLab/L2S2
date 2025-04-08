@@ -851,6 +851,11 @@ async fn query(
 
     if let Some(sortby) = sortby {
         match sortby.as_str() {
+            "adj_pvalue" => {
+                consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                results.sort_unstable_by(|a, b| a.adj_pvalue.partial_cmp(&b.adj_pvalue).unwrap_or(std::cmp::Ordering::Equal));
+            },
             "pvalue" => {
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
@@ -873,9 +878,19 @@ async fn query(
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
             },
+            "adj_pvalue_up" => {
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                results.sort_unstable_by(|a, b| a.adj_pvalue.partial_cmp(&b.adj_pvalue).unwrap_or(std::cmp::Ordering::Equal));
+            },
             "pvalue_down" => {
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+            },
+            "adj_pvalue_down" => {
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+                results.sort_unstable_by(|a, b| a.adj_pvalue.partial_cmp(&b.adj_pvalue).unwrap_or(std::cmp::Ordering::Equal));
             },
             "overlap" => {
                 results.sort_unstable_by(|a, b| b.n_overlap.partial_cmp(&a.n_overlap).unwrap_or(std::cmp::Ordering::Equal));
@@ -1488,23 +1503,44 @@ async fn query_pairs(
                 moa_consensus_results.sort_unstable_by(|a, b| b.odds_ratio_down.partial_cmp(&a.odds_ratio_down).unwrap_or(std::cmp::Ordering::Equal));
             },
             "pvalue_up" => {
+                results.sort_unstable_by(|a, b| a.pvalue_mimic.partial_cmp(&b.pvalue_mimic).unwrap());
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
             },
+            "adj_pvalue_up" => {
+                results.sort_unstable_by(|a, b| a.adj_pvalue_mimic.partial_cmp(&b.adj_pvalue_mimic).unwrap());
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+            },
             "pvalue_down" => {
+                results.sort_unstable_by(|a, b| a.pvalue_reverse.partial_cmp(&b.pvalue_reverse).unwrap());
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+            },
+            "adj_pvalue_down" => {
+                results.sort_unstable_by(|a, b| a.adj_pvalue_reverse.partial_cmp(&b.adj_pvalue_reverse).unwrap());
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
             },
             "pvalue_mimic" => {
                 results.sort_unstable_by(|a, b| a.pvalue_mimic.partial_cmp(&b.pvalue_mimic).unwrap());
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_up.partial_cmp(&b.pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
-
+            },
+            "adj_pvalue_mimic" => {
+                results.sort_unstable_by(|a, b| a.adj_pvalue_mimic.partial_cmp(&b.adj_pvalue_mimic).unwrap());
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_up.partial_cmp(&b.adj_pvalue_up).unwrap_or(std::cmp::Ordering::Equal));
             },
             "pvalue_reverse" => {
                 results.sort_unstable_by(|a, b| a.pvalue_reverse.partial_cmp(&b.pvalue_reverse).unwrap());
                 consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
                 moa_consensus_results.sort_unstable_by(|a, b| a.pvalue_down.partial_cmp(&b.pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+            },
+            "adj_pvalue_reverse" => {
+                results.sort_unstable_by(|a, b| a.adj_pvalue_reverse.partial_cmp(&b.adj_pvalue_reverse).unwrap());
+                consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
+                moa_consensus_results.sort_unstable_by(|a, b| a.adj_pvalue_down.partial_cmp(&b.adj_pvalue_down).unwrap_or(std::cmp::Ordering::Equal));
             },
             "odds_ratio_mimic" => {
                 results.sort_unstable_by(|a, b| b.odds_ratio_mimic.partial_cmp(&a.odds_ratio_mimic).unwrap());

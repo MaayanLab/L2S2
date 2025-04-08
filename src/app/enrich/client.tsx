@@ -556,10 +556,25 @@ function EnrichmentResults({
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       Up p-values adjusted using the Benjamini-Hochberg method
                     </div>
-                    AdjPValue
-                    <br />
-                    <span className="inline-flex">
-                      Up
+                    <span
+                      className="flex align-text-top cursor-pointer"
+                      onClick={() =>
+                        setQueryString({
+                          page: "1",
+                          q: rawTerm,
+                          fda: queryString.fda,
+                          dir: queryString.dir,
+                          moas: queryString.moas,
+                          sort: "adj_pvalue_up",
+                          ko: queryString.ko,
+                          topn: queryString.topn,
+                          pvaluele: queryString.pvaluele,
+                        })
+                      }
+                    >
+                      AdjPValue
+                      <br />
+                      Up <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -621,10 +636,25 @@ function EnrichmentResults({
                     <div className="absolute z-10 left-0 top-10 mb-2 hidden w-max bg-gray-700 text-white text-xs rounded p-1 group-hover:block">
                       Down p-values adjusted using the Benjamini-Hochberg method
                     </div>
-                    AdjPValue
-                    <br />
-                    <span className="inline-flex">
-                      Down
+                    <span
+                      className="flex align-text-top cursor-pointer"
+                      onClick={() =>
+                        setQueryString({
+                          page: "1",
+                          q: rawTerm,
+                          fda: queryString.fda,
+                          dir: queryString.dir,
+                          moas: queryString.moas,
+                          sort: "adj_pvalue_down",
+                          ko: queryString.ko,
+                          topn: queryString.topn,
+                          pvaluele: queryString.pvaluele,
+                        })
+                      }
+                    >
+                      AdjPValue
+                      <br />
+                      Down <FaSortUp />
                       <IoMdInformationCircleOutline className="ml-0.5" />
                     </span>
                   </th>
@@ -973,8 +1003,23 @@ function EnrichmentResults({
                     Adjusted P-value computed using the Benjamini-Hochberg
                     procedure
                   </div>
-                  <span className="inline-flex">
-                    AdjPValue
+                  <span
+                    className="flex align-text-top cursor-pointer"
+                    onClick={() =>
+                      setQueryString({
+                        page: "1",
+                        q: rawTerm,
+                        fda: queryString.fda,
+                        dir: queryString.dir,
+                        sort: "adj_pvalue",
+                        ko: queryString.ko,
+                        topn: queryString.topn,
+                        pvaluele: queryString.pvaluele,
+                        consensus: queryString.consensus,
+                      })
+                    }
+                  >
+                    AdjPValue <FaSortUp />
                     <IoMdInformationCircleOutline className="ml-0.5" />
                   </span>
                 </th>
