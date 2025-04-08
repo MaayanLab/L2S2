@@ -1357,7 +1357,7 @@ export default function EnrichClientPage({
         >
           {userGeneSet?.userGeneSet?.description || "Gene set"}
           {userGeneSet ? (
-            <> ({nGenesIncluded} of {userGeneSet?.userGeneSet?.genes?.length ?? "?"} submitted genes contained L2S2 background)</>
+            <> ({nGenesIncluded} of {userGeneSet?.userGeneSet?.genes?.length ?? "?"} submitted genes were mapped to genes in the L2S2 background)</>
           ) : null}
         </label>
       </div>
