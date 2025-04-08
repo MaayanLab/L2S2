@@ -498,7 +498,7 @@ function EnrichmentResults({
       <div className="overflow-x-scroll">
         {consensus || moas ? (
           <>
-            <table className="table table-xs">
+            <table className="table table-sm">
               <thead>
                 <tr className="text-left align-text-bottom">
                   <th>{consensus ? "Perturbation" : "MoA"}</th>
@@ -885,7 +885,7 @@ function EnrichmentResults({
             </table>
           </>
         ) : (
-          <table className="table table-xs">
+          <table className="table table-sm">
             <thead>
               <tr className="text-left align-text-bottom overflow-visible">
                 <th className={"hidden"}>Term</th>
