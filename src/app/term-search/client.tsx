@@ -57,7 +57,7 @@ export default function TermSearchClientPage(props: { searchParams?: { page?: st
           <input
             type="text"
             className="input input-bordered"
-            placeholder="neuron"
+            placeholder="U2OS"
             value={rawTerms}
             onChange={evt => {
               setRawTerms(evt.currentTarget.value)
