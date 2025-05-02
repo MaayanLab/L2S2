@@ -29,7 +29,7 @@ export default function Footer() {
   
   return (
     <footer className="flex-none footer p-5 mt-5 bg-blue-950 text-neutral-content flex place-content-evenly">
-      <div className="text-center pt-5">
+      <div className="text-center pt-5  font-bold">
         <ul>
           <li>
             <Link href="mailto:avi.maayan@mssm.edu" target="_blank">
@@ -80,14 +80,22 @@ export default function Footer() {
           </Link>
         </p>
       </div>
-      <div className="text-center pt-8 text-md">
+      <div className="text-center pt-5 text-md font-bold">
         <ul>
           <li>
             <Link
               href="https://www.apache.org/licenses/LICENSE-2.0.txt"
               target="_blank"
             >
-              LICENSE
+              License
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="https://academic.oup.com/nar/advance-article/doi/10.1093/nar/gkaf373/8123452"
+              target="_blank"
+            >
+              Publication
             </Link>
           </li>
         </ul>
