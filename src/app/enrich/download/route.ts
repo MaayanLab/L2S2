@@ -103,7 +103,13 @@ export async function GET(request: Request) {
       return new Response(
         streamTsv(
           [
-            "term",
+            "drug",
+            "perturbationId",
+            "concentration",
+            "cellLine",
+            "timepoint",
+            "batch",
+            "direction",
             "geneSetSize",
             "moa",
             "nOverlap",

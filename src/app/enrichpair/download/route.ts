@@ -123,8 +123,12 @@ export async function GET(request: Request) {
         return new Response(
           streamTsv(
             [  
-              
-              "term",
+              "perturbation",
+              "cellLine",
+              "timepoint",
+              "concentration",
+              "batch",
+              "perturbationId",
               "nMimicOverlap",
               "pvalueMimic",
               "adjPvalueMimic",
