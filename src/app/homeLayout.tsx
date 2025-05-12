@@ -29,6 +29,14 @@ export default function HomeLayout({ children }: React.PropsWithChildren<{}>) {
           <div className="mt-5">
             <span className="whitespace-nowrap">L2S2 includes over 1.4 million chemical perturbation and over 280,000 CRISPR knockout signatures.</span>
           </div>
+          <div className="mt-5">
+          <p className='mb-2 font-bold'>Please acknowledge L2S2 in your publications by citing the following reference: </p>
+          </div>
+          <div className='text-left pl-24'>
+          <p className=''>Giacomo B Marino, John E Evangelista, Daniel J B Clarke, Avi Ma&apos;ayan, </p>
+          <p> L2S2: chemical perturbation and CRISPR KO LINCS L1000 signature search engine. </p><p><i>Nucleic Acids Res</i>, 2025; gkaf373, <a className="underline text-blue-600 cursor-pointer" href='https://doi.org/10.1093/nar/gkaf373' target='_blank'>https://doi.org/10.1093/nar/gkaf373</a></p>
+          </div>
+
           </React.Suspense>
         </div>
       </div>
