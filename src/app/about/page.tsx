@@ -1,6 +1,5 @@
 import React from 'react'
 import Image from "next/image"
-import Stats from "../stats"
 import Link from "next/link"
 import { Metadata, ResolvingMetadata } from 'next'
 

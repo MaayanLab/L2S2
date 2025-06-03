@@ -1,6 +1,6 @@
 'use client'
 import React from 'react'
-import Stats from "@/app/stats";
+import Stats from "@/components/stats";
 
 // TODO: have downloads as a table in the database
 const downloads = [

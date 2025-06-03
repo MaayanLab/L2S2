@@ -13,7 +13,7 @@ import Loading from "@/components/loading";
 import Pagination from "@/components/pagination";
 import DownloadButton from "@/components/downloadButton";
 import useQsState from "@/utils/useQsState";
-import Stats from "../stats";
+import Stats from "@/components/stats";
 import Image from "next/image";
 import GeneSetModal from "@/components/geneSetModal";
 import { FaFilter, FaSortUp } from "react-icons/fa6";

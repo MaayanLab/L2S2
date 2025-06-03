@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Nav from "./nav";
-import Stats from "./stats";
+import Stats from "@/components/stats";
 import { useSearchParams } from 'next/navigation'
 
 export default function Header() {
