@@ -1,6 +1,6 @@
 {
   "name": "l2s2",
-  "version": "0.0.3",
+  "version": "0.2.27",
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm run generate -- --watch ./src/graphql/**/*.graphql\"",
@@ -9,8 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "generate": "graphql-codegen --config graphql.config.yml",
-    "version": "npm run build && ts-node src/cli/version-compose.ts && docker-compose build rummagene-app",
-    "postversion": "docker-compose push rummagene-app"
+    "version": "npm run build && ts-node src/cli/version-compose.ts && docker-compose build l2s2-app",
+    "postversion": "docker-compose push l2s2-app"
   },
   "dependencies": {
     "@apollo/client": "^3.8.0-rc.2",
