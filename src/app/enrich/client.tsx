@@ -240,7 +240,7 @@ function EnrichmentResults({
               : "button btn btn-sm float-left mr-4"
           }
         >
-          Consensus Drugs
+          Consensus Perturbations
         </button>
         <button
           onClick={() => {
