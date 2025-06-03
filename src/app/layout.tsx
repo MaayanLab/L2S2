@@ -1,12 +1,9 @@
 import "./globals.css";
 import React from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { ApolloWrapper } from "@/lib/apollo/provider";
-import Nav from "./nav";
-import Stats from "./stats";
-import Image from "next/image";
 import { RuntimeConfig } from "@/app/runtimeConfig";
+import Header from "@/components/header";
 import Footer from "@/components/footer";
 
 export const metadata: Metadata = {
@@ -108,34 +105,19 @@ export default function RootLayout({
       <ApolloWrapper>
         <RuntimeConfig>
           <body className="min-h-screen flex flex-col bg-gradient-to-t from-blue-300 to-white dark:from-black dark:to-blue-900 dark:text-white">
-            <header>
-              <div className="navbar block text-center">
-                <div className="navbar-center">
-                  <ul className="menu menu-horizontal gap-3 text-lg justify-center">
-                    <Nav />
-                  </ul>
-                </div>
-                <div className="navbar-center ml-5">
-                  <React.Suspense
-                    fallback={
-                      <span className="loading loading-ring loading-lg"></span>
-                    }
-                  >
-                    <Stats bold show_sets_analyzed />
-                  </React.Suspense>
-                </div>
-              </div>
-            </header>
-            <main className="flex-1 flex-col justify-stretch mx-8 md:mx-32">
-              <React.Suspense
-                fallback={
-                  <span className="loading loading-ring loading-lg"></span>
-                }
-              >
-                {children}
-              </React.Suspense>
-            </main>
-            <Footer/>
+            <React.Suspense fallback={null}>
+              <Header />
+              <main className="flex-1 flex-col justify-stretch mx-8 md:mx-32">
+                <React.Suspense
+                  fallback={
+                    <span className="loading loading-ring loading-lg"></span>
+                  }
+                >
+                  {children}
+                </React.Suspense>
+              </main>
+              <Footer/>
+            </React.Suspense>
           </body>
         </RuntimeConfig>
       </ApolloWrapper>
