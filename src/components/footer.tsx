@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useSearchParams } from 'next/navigation'
 import Analytics from "@/app/analytics";
 
 const LocalStorageWrapper = ({ children }:{children: React.ReactNode}) => {
@@ -16,6 +17,7 @@ const LocalStorageWrapper = ({ children }:{children: React.ReactNode}) => {
 export default function Footer() {
   const [showConsent, setShowConsent] = useState(true);
   const [analyticsOn, setAnalyticsOn] = useState(false);
+  const searchParams = useSearchParams()
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.localStorage) {
@@ -27,6 +29,7 @@ export default function Footer() {
       }   
   })
   
+  if (searchParams.get('embed') !== null) return null
   return (
     <footer className="flex-none footer p-5 mt-5 bg-blue-950 text-neutral-content flex place-content-evenly">
       <div className="text-center pt-5  font-bold">

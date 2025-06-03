@@ -1,8 +1,12 @@
+"use client";
 import React from "react";
 import Nav from "./nav";
 import Stats from "./stats";
+import { useSearchParams } from 'next/navigation'
 
 export default function Header() {
+  const searchParams = useSearchParams()
+  if (searchParams.get('embed') !== null) return null
   return (
     <header>
       <div className="navbar block text-center">
