@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation'
 
 export default function Header() {
   const searchParams = useSearchParams()
-  if (searchParams.get('embed') !== null) return null
+  if (searchParams?.get('embed') !== null) return null
   return (
     <header>
       <div className="navbar block text-center">

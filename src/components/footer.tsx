@@ -29,7 +29,7 @@ export default function Footer() {
       }   
   })
   
-  if (searchParams.get('embed') !== null) return null
+  if (searchParams?.get('embed') !== null) return null
   return (
     <footer className="flex-none footer p-5 mt-5 bg-blue-950 text-neutral-content flex place-content-evenly">
       <div className="text-center pt-5  font-bold">
