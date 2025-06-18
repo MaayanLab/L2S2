@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   l2s2-app:
     build: .
@@ -42,7 +41,7 @@ services:
     ports:
       - 5432:5432
     volumes:
-      - ./data/postgres/:/var/lib/postgresql/data
+      - l2s2-data-2:/var/lib/postgresql/data
 
 volumes:
   l2s2-data-2:
