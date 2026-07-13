@@ -1089,9 +1089,9 @@ async fn query_pairs(
             })
             .collect();
 
-            // extract pvalues from results and compute adj_pvalues
-            let mut pvalues_mimic = vec![1.0; bitmap.values.len()];
-            let mut pvalues_reverse = vec![1.0; bitmap.values.len()];
+            // FDR correction is over the number of pairs tested, not the number of gene sets.
+            let mut pvalues_mimic = vec![1.0; bitmap.signature_pairs.pairs.len()];
+            let mut pvalues_reverse = vec![1.0; bitmap.signature_pairs.pairs.len()];
             for result in &results {
                 pvalues_mimic[result.index] = result.pvalue_mimic;
                 pvalues_reverse[result.index] = result.pvalue_reverse;
