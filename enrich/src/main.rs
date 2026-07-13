@@ -1053,7 +1053,7 @@ async fn query_pairs(
                 let a_mimic = mimicker_overlap;
                 let b_mimic = n_user_gene_id - a_mimic;
                 let c_mimic = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_mimic;
-                let d_mimic = n_background - b_mimic - c_mimic + a_mimic;
+                let d_mimic = n_background - b_mimic - c_mimic - a_mimic;
 
                 
                 let pvalue_mimic = fisher.get_p_value(a_mimic as usize, b_mimic as usize, c_mimic as usize, d_mimic as usize);
@@ -1062,7 +1062,7 @@ async fn query_pairs(
                 let a_reverse = reverser_overlap;
                 let b_reverse = n_user_gene_id - a_reverse;
                 let c_reverse = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_reverse;
-                let d_reverse = n_background - b_reverse - c_reverse + a_reverse;
+                let d_reverse = n_background - b_reverse - c_reverse - a_reverse;
 
                 let pvalue_reverse = fisher.get_p_value(a_reverse as usize, b_reverse as usize, c_reverse as usize, d_reverse as usize);
 
