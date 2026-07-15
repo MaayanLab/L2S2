@@ -542,7 +542,8 @@ async fn query(
     let n_insignificant_drugs = total_terms - n_significant_drugs;
 
     let mut fisher = state.fisher.write().await; // Acquire write lock to mutate the data
-    *fisher = FastFisher::with_capacity(total_terms * 2); 
+    // This table is shared across backgrounds and query types, so never shrink it.
+    fisher.extend_to(total_terms * 2);
 
     let mut consensus_results: Vec<DrugConsensusResult> = drug_significance_counts
         .par_iter() // Use Rayon parallel iterator
@@ -1049,27 +1050,41 @@ async fn query_pairs(
                     return None;
                 }
 
-                // Compute Fisher test for mimicker
+                let query_up_n = background_query.input_gene_set_up.n;
+                let query_down_n = background_query.input_gene_set_down.n;
+                let lib_up_n = gene_set_up.v.len();
+                let lib_down_n = gene_set_down.v.len();
+
+                // Compute convolved hypergeometric tail for mimicker.
                 let a_mimic = mimicker_overlap;
-                let b_mimic = n_user_gene_id - a_mimic;
-                let c_mimic = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_mimic;
-                let d_mimic = n_background - b_mimic - c_mimic - a_mimic;
-
+                let pvalue_mimic = fisher.get_convolved_p_value(
+                    overlap_up_up as usize,
+                    overlap_down_down as usize,
+                    query_up_n,
+                    query_down_n,
+                    lib_up_n,
+                    lib_down_n,
+                    n_background as usize,
+                );
                 
-                let pvalue_mimic = fisher.get_p_value(a_mimic as usize, b_mimic as usize, c_mimic as usize, d_mimic as usize);
-                
-                // Compute Fisher test for reverser
+                // Compute convolved hypergeometric tail for reverser.
                 let a_reverse = reverser_overlap;
-                let b_reverse = n_user_gene_id - a_reverse;
-                let c_reverse = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_reverse;
-                let d_reverse = n_background - b_reverse - c_reverse - a_reverse;
+                let pvalue_reverse = fisher.get_convolved_p_value(
+                    overlap_up_down as usize,
+                    overlap_down_up as usize,
+                    query_up_n,
+                    query_down_n,
+                    lib_down_n,
+                    lib_up_n,
+                    n_background as usize,
+                );
 
-                let pvalue_reverse = fisher.get_p_value(a_reverse as usize, b_reverse as usize, c_reverse as usize, d_reverse as usize);
-
-                if pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0) {
+                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0)) {
                     return None;
                 }
 
+                let c_mimic = (lib_up_n + lib_down_n) as u32 - a_mimic;
+                let c_reverse = (lib_up_n + lib_down_n) as u32 - a_reverse;
                 let odds_ratio_mimic = ((a_mimic as f64) / (n_user_gene_id as f64)) / ((c_mimic as f64) / (n_background as f64));
                 let odds_ratio_reverse = ((a_reverse as f64) / (n_user_gene_id as f64)) / ((c_reverse as f64) / (n_background as f64));
 
