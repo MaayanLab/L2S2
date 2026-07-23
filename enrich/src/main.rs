@@ -967,7 +967,7 @@ async fn query(
     })
 }
 
-#[post("/pairs/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>&<top_n>", data = "<input_gene_sets>")]
+#[post("/pairs/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>&<top_n>&<pvalue_method>", data = "<input_gene_sets>")]
 async fn query_pairs(
     mut db: Connection<Postgres>,
     state: &State<PersistentState>,
@@ -983,6 +983,7 @@ async fn query_pairs(
     sortby: Option<String>,
     filter_ko: Option<bool>,
     top_n: Option<usize>,
+    pvalue_method: Option<&str>,
 ) -> Result<PairedQueryResponse, Custom<String>> {
 
     let background_id = {
@@ -1016,6 +1017,11 @@ async fn query_pairs(
     let filter_term = filter_term.and_then(|filter_term| Some(filter_term.to_lowercase()));
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let top_n = top_n.unwrap_or(1000);
+    let use_old_pooled_fisher = match pvalue_method {
+        None => false,
+        Some("old_pooled_fisher") => true,
+        Some(method) => return Err(Custom(Status::NotFound, format!("Unknown paired p-value method: {method}"))),
+    };
 
     let fisher = state.fisher.read().await;
 
@@ -1026,7 +1032,12 @@ async fn query_pairs(
     let start = Instant::now();
     let background_query = Arc::new(BackgroundQueryPair { background_id, input_gene_set_up, input_gene_set_down });
     let mut results = {
-        let results = state.cachepair.get(&background_query).await;
+        // old_pooled_fisher requests skip cache lookup.
+        let results = if use_old_pooled_fisher {
+            None
+        } else {
+            state.cachepair.get(&background_query).await
+        };
         if let Some(results) = results {
             results.value().clone()
         } else {
@@ -1055,29 +1066,47 @@ async fn query_pairs(
                 let lib_up_n = gene_set_up.v.len();
                 let lib_down_n = gene_set_down.v.len();
 
-                // Compute convolved hypergeometric tail for mimicker.
+                // Compute the mimicker p-value with the requested method.
                 let a_mimic = mimicker_overlap;
-                let pvalue_mimic = fisher.get_convolved_p_value(
-                    overlap_up_up as usize,
-                    overlap_down_down as usize,
-                    query_up_n,
-                    query_down_n,
-                    lib_up_n,
-                    lib_down_n,
-                    n_background as usize,
-                );
+                let pvalue_mimic = if use_old_pooled_fisher {
+                    fisher.get_old_pooled_fisher_p_value(
+                        a_mimic as usize,
+                        query_up_n + query_down_n,
+                        lib_up_n + lib_down_n,
+                        n_background as usize,
+                    )
+                } else {
+                    fisher.get_convolved_p_value(
+                        overlap_up_up as usize,
+                        overlap_down_down as usize,
+                        query_up_n,
+                        query_down_n,
+                        lib_up_n,
+                        lib_down_n,
+                        n_background as usize,
+                    )
+                };
                 
-                // Compute convolved hypergeometric tail for reverser.
+                // Compute the reverser p-value with the requested method.
                 let a_reverse = reverser_overlap;
-                let pvalue_reverse = fisher.get_convolved_p_value(
-                    overlap_up_down as usize,
-                    overlap_down_up as usize,
-                    query_up_n,
-                    query_down_n,
-                    lib_down_n,
-                    lib_up_n,
-                    n_background as usize,
-                );
+                let pvalue_reverse = if use_old_pooled_fisher {
+                    fisher.get_old_pooled_fisher_p_value(
+                        a_reverse as usize,
+                        query_up_n + query_down_n,
+                        lib_up_n + lib_down_n,
+                        n_background as usize,
+                    )
+                } else {
+                    fisher.get_convolved_p_value(
+                        overlap_up_down as usize,
+                        overlap_down_up as usize,
+                        query_up_n,
+                        query_down_n,
+                        lib_down_n,
+                        lib_up_n,
+                        n_background as usize,
+                    )
+                };
 
                 if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0)) {
                     return None;
@@ -1126,7 +1155,10 @@ async fn query_pairs(
             results.sort_unstable_by(|a, b| a.pvalue_mimic.partial_cmp(&b.pvalue_mimic).unwrap_or(std::cmp::Ordering::Equal));
 
             let results = Arc::new(results);
-            state.cachepair.insert(background_query, results.clone(), 30000).await;
+            // old_pooled_fisher results are never inserted into the cache.
+            if !use_old_pooled_fisher {
+                state.cachepair.insert(background_query, results.clone(), 30000).await;
+            }
             let duration = start.elapsed();
             println!("[{}] {} up and down genes enriched in {:?}", background_id, n_user_gene_id, duration);
             results

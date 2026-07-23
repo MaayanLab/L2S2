@@ -98,6 +98,32 @@ impl FastFisher {
     pvalue.min(1.0)
   }
 
+  /// Compute the old pooled paired-enrichment Fisher's Exact Test.
+  pub fn get_old_pooled_fisher_p_value(
+    self: &Self,
+    observed: usize,
+    draws: usize,
+    successes: usize,
+    population: usize,
+  ) -> f64 {
+    let Some(b) = draws.checked_sub(observed) else {
+      return f64::NAN;
+    };
+    let Some(c) = successes.checked_sub(observed) else {
+      return f64::NAN;
+    };
+    let Some(d) = population.checked_sub(observed + b + c) else {
+      return f64::NAN;
+    };
+    let pvalue = self.get_p_value(observed, b, c, d);
+    // Floating-point accumulation can push the result slightly above 1.0 so clamped at 1.0
+    if pvalue.is_finite() {
+      pvalue.clamp(0.0, 1.0)
+    } else {
+      pvalue
+    }
+  }
+
   pub fn get_p_value(self: &Self, mut a: usize, mut b: usize, mut c: usize, mut d: usize) -> f64 {
     let n = a + b + c + d;
     
