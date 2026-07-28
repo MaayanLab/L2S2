@@ -204,7 +204,7 @@ query EnrichmentQueryMoAs($genes: [String]!, $filterTerm: String = "", $offset: 
 }
 
 
-query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
+query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05, $pvalueMethod: String) {
   currentBackground {
     pairedEnrich(
       filterTerm: $filterTerm
@@ -215,6 +215,7 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
       filterKo: $filterKo
       topN: $topN
       pvalueLe: $pvalueLe
+      pvalueMethod: $pvalueMethod
       genesDown: $genesDown
       genesUp: $genesUp
     ) {
@@ -285,7 +286,7 @@ query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTer
   }
 }
 
-query PairEnrichmentQuerySingle($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
+query PairEnrichmentQuerySingle($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05, $pvalueMethod: String) {
   currentBackground {
     pairedEnrich(
       filterTerm: $filterTerm
@@ -296,6 +297,7 @@ query PairEnrichmentQuerySingle($genesUp: [String]!, $genesDown: [String]!, $fil
       filterKo: $filterKo
       topN: $topN
       pvalueLe: $pvalueLe
+      pvalueMethod: $pvalueMethod
       genesDown: $genesDown
       genesUp: $genesUp
     ) {
@@ -332,7 +334,7 @@ query PairEnrichmentQuerySingle($genesUp: [String]!, $genesDown: [String]!, $fil
   }
 }
 
-query PairEnrichmentQueryConsensus($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
+query PairEnrichmentQueryConsensus($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05, $pvalueMethod: String) {
   currentBackground {
     pairedEnrich(
       filterTerm: $filterTerm
@@ -343,6 +345,7 @@ query PairEnrichmentQueryConsensus($genesUp: [String]!, $genesDown: [String]!, $
       filterKo: $filterKo
       topN: $topN
       pvalueLe: $pvalueLe
+      pvalueMethod: $pvalueMethod
       genesDown: $genesDown
       genesUp: $genesUp
     ) {
@@ -367,7 +370,7 @@ query PairEnrichmentQueryConsensus($genesUp: [String]!, $genesDown: [String]!, $
   }
 }
 
-query PairEnrichmentQueryMoAs($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
+query PairEnrichmentQueryMoAs($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = "", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = "", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05, $pvalueMethod: String) {
   currentBackground {
     pairedEnrich(
       filterTerm: $filterTerm
@@ -378,6 +381,7 @@ query PairEnrichmentQueryMoAs($genesUp: [String]!, $genesDown: [String]!, $filte
       filterKo: $filterKo
       topN: $topN
       pvalueLe: $pvalueLe
+      pvalueMethod: $pvalueMethod
       genesDown: $genesDown
       genesUp: $genesUp
     ) {

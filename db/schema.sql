@@ -278,10 +278,10 @@ $$;
 
 
 --
--- Name: indexed_paired_enrich(app_public_v2.background, uuid[], uuid[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_private_v2; Owner: -
+-- Name: indexed_paired_enrich(app_public_v2.background, uuid[], uuid[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer, character varying); Type: FUNCTION; Schema: app_private_v2; Owner: -
 --
 
-CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.background, gene_ids_up uuid[], gene_ids_down uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_paired_enrich_result
+CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.background, gene_ids_up uuid[], gene_ids_down uuid[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000, pvalue_method character varying DEFAULT NULL::character varying) RETURNS app_public_v2.paginated_paired_enrich_result
     LANGUAGE plpython3u IMMUTABLE PARALLEL SAFE
     AS $$
   import os, requests
@@ -299,6 +299,7 @@ CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.ba
   if offset: params['offset'] = offset
   if first: params['limit'] = first
   if sortby: params['sortby'] = sortby
+  if pvalue_method: params['pvalue_method'] = pvalue_method
   req = requests.post(
     f"{os.environ.get('ENRICH_URL', 'http://l2s2-enrich:8000')}/pairs/{background['id']}",
     params=params,
@@ -839,10 +840,10 @@ $$;
 
 
 --
--- Name: background_paired_enrich(app_public_v2.background, character varying[], character varying[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer); Type: FUNCTION; Schema: app_public_v2; Owner: -
+-- Name: background_paired_enrich(app_public_v2.background, character varying[], character varying[], character varying, integer, double precision, double precision, integer, integer, boolean, character varying, boolean, integer, character varying); Type: FUNCTION; Schema: app_public_v2; Owner: -
 --
 
-CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.background, genes_up character varying[], genes_down character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000) RETURNS app_public_v2.paginated_paired_enrich_result
+CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.background, genes_up character varying[], genes_down character varying[], filter_term character varying DEFAULT NULL::character varying, overlap_ge integer DEFAULT 1, pvalue_le double precision DEFAULT 0.05, adj_pvalue_le double precision DEFAULT 0.05, "offset" integer DEFAULT NULL::integer, first integer DEFAULT NULL::integer, filter_fda boolean DEFAULT false, sortby character varying DEFAULT NULL::character varying, filter_ko boolean DEFAULT false, top_n integer DEFAULT 10000, pvalue_method character varying DEFAULT NULL::character varying) RETURNS app_public_v2.paginated_paired_enrich_result
     LANGUAGE sql IMMUTABLE SECURITY DEFINER PARALLEL SAFE
     AS $$
   select r.*
@@ -859,7 +860,8 @@ CREATE FUNCTION app_public_v2.background_paired_enrich(background app_public_v2.
     background_paired_enrich.filter_fda,
     background_paired_enrich.sortby,
     background_paired_enrich.filter_ko,
-    background_paired_enrich.top_n
+    background_paired_enrich.top_n,
+    background_paired_enrich.pvalue_method
   ) r;
 $$;
 
