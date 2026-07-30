@@ -127,7 +127,7 @@ impl FastFisher {
   pub fn get_p_value(self: &Self, mut a: usize, mut b: usize, mut c: usize, mut d: usize) -> f64 {
     let n = a + b + c + d;
     
-    if n > self.f.len() {
+    if n >= self.f.len() {
       return f64::NAN;
     }
     let same = self.f[a + b] + self.f[c + d] + self.f[a + c] + self.f[b + d] - self.f[n];
