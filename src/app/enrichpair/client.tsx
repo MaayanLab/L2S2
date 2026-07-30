@@ -93,6 +93,7 @@ function EnrichmentResults({
     ko: "false",
     topn: "10000",
     pvaluele: "0.05",
+    pvaluemethod: "",
   });
   const [rawTerm, setRawTerm] = React.useState("");
   const [topNSlider, setTopNSlider] = React.useState(10000);
@@ -126,6 +127,7 @@ function EnrichmentResults({
       filterKo: ko,
       topN: topN,
       pvalueLe: pvalueLe,
+      pvalueMethod: queryString.pvaluemethod || undefined,
     },
   });
 

@@ -23,6 +23,7 @@ export async function GET(request: Request) {
   const sort = searchParams.get("sort") || "pvalue";
   const topN = searchParams.get("topn") || "10000";
   const maxTotal = searchParams.get("maxTotal") || "100000";
+  const pvalueMethod = searchParams.get("pvaluemethod") || undefined;
 
   console.log(datasetUp, datasetDown)
 
@@ -74,7 +75,8 @@ export async function GET(request: Request) {
               filterFda === "true",
               filterKo === "true",
               parseInt(topN),
-              sort
+              sort,
+              pvalueMethod
             ),
             (item) => item
           ),
@@ -109,7 +111,8 @@ export async function GET(request: Request) {
               filterFda === "true",
               filterKo === "true",
               parseInt(topN),
-              sort
+              sort,
+              pvalueMethod
             ),
             (item) => item
           ),
@@ -149,7 +152,8 @@ export async function GET(request: Request) {
               filterKo === "true",
               parseInt(topN),
               sort,
-              parseInt(maxTotal)
+              parseInt(maxTotal),
+              pvalueMethod
             ),
             (item) => item
           ),

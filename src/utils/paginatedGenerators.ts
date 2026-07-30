@@ -218,7 +218,7 @@ export async function* paginatedMoAsGenerator(
 }
 
 
-export async function* paginatedPairNodeGenerator(genesUp: string[], genesDown: string[], term: string, filterFda: boolean, filterKo: boolean, topN: number = 1000, sort: string, maxTotal: number = 100000) {
+export async function* paginatedPairNodeGenerator(genesUp: string[], genesDown: string[], term: string, filterFda: boolean, filterKo: boolean, topN: number = 1000, sort: string, maxTotal: number = 100000, pvalueMethod?: string) {
     const pageSize = 500;
     let offset = 0;
   
@@ -235,6 +235,7 @@ export async function* paginatedPairNodeGenerator(genesUp: string[], genesDown: 
           offset,
           first: pageSize,
           topN,
+          pvalueMethod,
         },
       });
   
@@ -301,7 +302,8 @@ export async function* paginatedPairConsensusGenerator(
     filterFda: boolean,
     filterKo: boolean,
     topN: number = 1000,
-    sort: string
+    sort: string,
+    pvalueMethod?: string
   ) {
     const pageSize = 500;
     let offset = 0;
@@ -320,6 +322,7 @@ export async function* paginatedPairConsensusGenerator(
           offset,
           first: pageSize,
           topN,
+          pvalueMethod,
         },
       });
   
@@ -365,7 +368,8 @@ export async function* paginatedPairMoAsGenerator(
     filterFda: boolean,
     filterKo: boolean,
     topN: number = 1000,
-    sort: string
+    sort: string,
+    pvalueMethod?: string
   ) {
     const pageSize = 500;
     let offset = 0;
@@ -384,6 +388,7 @@ export async function* paginatedPairMoAsGenerator(
           offset,
           first: pageSize,
           topN,
+          pvalueMethod,
         },
       });
   
@@ -421,4 +426,3 @@ export async function* paginatedPairMoAsGenerator(
       if (offset >= totalCount) break;
     }
 }
-  
