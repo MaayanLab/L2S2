@@ -38,13 +38,6 @@ CREATE SCHEMA internal;
 
 
 --
--- Name: postgraphile_watch; Type: SCHEMA; Schema: -; Owner: -
---
-
-CREATE SCHEMA postgraphile_watch;
-
-
---
 -- Name: plpython3u; Type: EXTENSION; Schema: -; Owner: -
 --
 
@@ -141,7 +134,7 @@ CREATE TYPE app_public_v2.enrich_result AS (
 -- Name: TYPE enrich_result; Type: COMMENT; Schema: app_public_v2; Owner: -
 --
 
-COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash_down) references app_public_v2.gene_set (id)';
+COMMENT ON TYPE app_public_v2.enrich_result IS '@foreign key (gene_set_hash) references app_public_v2.gene_set (hash)';
 
 
 --
@@ -161,8 +154,10 @@ CREATE TYPE app_public_v2.gene_mapping AS (
 CREATE TYPE app_public_v2.paginated_enrich_result AS (
 	nodes app_public_v2.enrich_result[],
 	consensus app_public_v2.consensus_result[],
+	moas app_public_v2.consensus_result[],
 	total_count integer,
-	consensus_count integer
+	consensus_count integer,
+	moas_count integer
 );
 
 
@@ -188,7 +183,7 @@ CREATE TYPE app_public_v2.paired_enrich_result AS (
 -- Name: TYPE paired_enrich_result; Type: COMMENT; Schema: app_public_v2; Owner: -
 --
 
-COMMENT ON TYPE app_public_v2.paired_enrich_result IS '@foreign key (gene_set_hash_up) references app_public_v2.gene_set (id)';
+COMMENT ON TYPE app_public_v2.paired_enrich_result IS '@foreign key (gene_set_hash_up) references app_public_v2.gene_set (hash)';
 
 
 --
@@ -198,8 +193,10 @@ COMMENT ON TYPE app_public_v2.paired_enrich_result IS '@foreign key (gene_set_ha
 CREATE TYPE app_public_v2.paginated_paired_enrich_result AS (
 	nodes app_public_v2.paired_enrich_result[],
 	consensus app_public_v2.consensus_result[],
+	moas app_public_v2.consensus_result[],
 	total_count integer,
-	consensus_count integer
+	consensus_count integer,
+	moas_count integer
 );
 
 
@@ -273,7 +270,8 @@ CREATE FUNCTION app_private_v2.indexed_enrich(background app_public_v2.backgroun
   print(req.headers.keys())
   total_count = req.headers.get('Content-Range').split('/')[1]
   consensus_count = req.headers.get('Content-Range').split('/')[2]
-  return dict(nodes=req.json()['results'], consensus=req.json()['consensus'], total_count=total_count, consensus_count=consensus_count)
+  moas_count = req.headers.get('Content-Range').split('/')[3]
+  return dict(nodes=req.json()['results'],  consensus=req.json()['consensus'], moas=req.json()['moas'], total_count=total_count, consensus_count=consensus_count, moas_count=moas_count)
 $$;
 
 
@@ -307,7 +305,9 @@ CREATE FUNCTION app_private_v2.indexed_paired_enrich(background app_public_v2.ba
   )
   total_count = req.headers.get('Content-Range').split('/')[1]
   consensus_count = req.headers.get('Content-Range').split('/')[2]
-  return dict(nodes=req.json()['results'],  consensus=req.json()['consensus'], total_count=total_count, consensus_count=consensus_count)
+  moas_count = req.headers.get('Content-Range').split('/')[3]
+
+  return dict(nodes=req.json()['results'], consensus=req.json()['consensus'], moas=req.json()['moas'], total_count=total_count, consensus_count=consensus_count, moas_count=moas_count)
 $$;
 
 
@@ -1027,7 +1027,8 @@ $$;
 CREATE TABLE app_public_v2.fda_counts (
     perturbation character varying NOT NULL,
     count integer,
-    approved boolean
+    approved boolean,
+    moa text
 );
 
 
@@ -1039,7 +1040,8 @@ CREATE MATERIALIZED VIEW app_public_v2.gene_set_fda_counts AS
  SELECT gs.id,
     fda.perturbation,
     fda.count,
-    fda.approved
+    fda.approved,
+    fda.moa
    FROM (app_public_v2.gene_set gs
      JOIN app_public_v2.fda_counts fda ON ((replace(replace(split_part((gs.term)::text, '_'::text, 5), ' up'::text, ' '::text), ' down'::text, ' '::text) = (fda.perturbation)::text)))
   WITH NO DATA;
@@ -1310,48 +1312,6 @@ $$;
 
 
 --
--- Name: notify_watchers_ddl(); Type: FUNCTION; Schema: postgraphile_watch; Owner: -
---
-
-CREATE FUNCTION postgraphile_watch.notify_watchers_ddl() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-begin
-  perform pg_notify(
-    'postgraphile_watch',
-    json_build_object(
-      'type',
-      'ddl',
-      'payload',
-      (select json_agg(json_build_object('schema', schema_name, 'command', command_tag)) from pg_event_trigger_ddl_commands() as x)
-    )::text
-  );
-end;
-$$;
-
-
---
--- Name: notify_watchers_drop(); Type: FUNCTION; Schema: postgraphile_watch; Owner: -
---
-
-CREATE FUNCTION postgraphile_watch.notify_watchers_drop() RETURNS event_trigger
-    LANGUAGE plpgsql
-    AS $$
-begin
-  perform pg_notify(
-    'postgraphile_watch',
-    json_build_object(
-      'type',
-      'drop',
-      'payload',
-      (select json_agg(distinct x.schema_name) from pg_event_trigger_dropped_objects() as x)
-    )::text
-  );
-end;
-$$;
-
-
---
 -- Name: gene_set_gene; Type: TABLE; Schema: app_public; Owner: -
 --
 
@@ -1484,7 +1444,7 @@ COMMENT ON VIEW app_public_v2.pmc IS '@foreignKey (pmc) references app_public_v2
 --
 
 CREATE TABLE public.schema_migrations (
-    version character varying(128) NOT NULL
+    version character varying NOT NULL
 );
 
 
@@ -1859,23 +1819,6 @@ ALTER TABLE ONLY app_public.gene_synonym
 
 
 --
--- Name: postgraphile_watch_ddl; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER postgraphile_watch_ddl ON ddl_command_end
-         WHEN TAG IN ('ALTER AGGREGATE', 'ALTER DOMAIN', 'ALTER EXTENSION', 'ALTER FOREIGN TABLE', 'ALTER FUNCTION', 'ALTER POLICY', 'ALTER SCHEMA', 'ALTER TABLE', 'ALTER TYPE', 'ALTER VIEW', 'COMMENT', 'CREATE AGGREGATE', 'CREATE DOMAIN', 'CREATE EXTENSION', 'CREATE FOREIGN TABLE', 'CREATE FUNCTION', 'CREATE INDEX', 'CREATE POLICY', 'CREATE RULE', 'CREATE SCHEMA', 'CREATE TABLE', 'CREATE TABLE AS', 'CREATE VIEW', 'DROP AGGREGATE', 'DROP DOMAIN', 'DROP EXTENSION', 'DROP FOREIGN TABLE', 'DROP FUNCTION', 'DROP INDEX', 'DROP OWNED', 'DROP POLICY', 'DROP RULE', 'DROP SCHEMA', 'DROP TABLE', 'DROP TYPE', 'DROP VIEW', 'GRANT', 'REVOKE', 'SELECT INTO')
-   EXECUTE FUNCTION postgraphile_watch.notify_watchers_ddl();
-
-
---
--- Name: postgraphile_watch_drop; Type: EVENT TRIGGER; Schema: -; Owner: -
---
-
-CREATE EVENT TRIGGER postgraphile_watch_drop ON sql_drop
-   EXECUTE FUNCTION postgraphile_watch.notify_watchers_drop();
-
-
---
 -- PostgreSQL database dump complete
 --
 
@@ -1911,4 +1854,8 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20250204164413'),
     ('20250213194034'),
     ('20250303153036'),
-    ('20250303172415');
+    ('20250303172415'),
+    ('20250402204827'),
+    ('20250402210907'),
+    ('20250403171952'),
+    ('20260727150000');
