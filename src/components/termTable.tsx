@@ -99,10 +99,10 @@ export default function TermTable({ terms }: { terms: { __typename?: "GeneSet" |
                     {timepoint}
                   </td>
                   <td>
-                    {direction}
+                    {concentration}
                   </td>
                   <td>
-                    {concentration}
+                    {direction}
                   </td>
 
                   <td className='w-3/12'>
