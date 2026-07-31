@@ -1133,9 +1133,15 @@ async fn query_pairs(
             })
             .collect();
 
-            // FDR correction is over the number of pairs tested, not the number of gene sets.
-            let mut pvalues_mimic = vec![1.0; bitmap.signature_pairs.pairs.len()];
-            let mut pvalues_reverse = vec![1.0; bitmap.signature_pairs.pairs.len()];
+            // Legacy results used every directional gene set as the BH universe;
+            // convolution corrects over the signature pairs actually tested.
+            let fdr_count = if use_old_pooled_fisher {
+                bitmap.values.len()
+            } else {
+                bitmap.signature_pairs.pairs.len()
+            };
+            let mut pvalues_mimic = vec![1.0; fdr_count];
+            let mut pvalues_reverse = vec![1.0; fdr_count];
             for result in &results {
                 pvalues_mimic[result.index] = result.pvalue_mimic;
                 pvalues_reverse[result.index] = result.pvalue_reverse;

@@ -106,15 +106,9 @@ impl FastFisher {
     successes: usize,
     population: usize,
   ) -> f64 {
-    let Some(b) = draws.checked_sub(observed) else {
-      return f64::NAN;
-    };
-    let Some(c) = successes.checked_sub(observed) else {
-      return f64::NAN;
-    };
-    let Some(d) = population.checked_sub(observed + b + c) else {
-      return f64::NAN;
-    };
+    let b = draws - observed;
+    let c = successes - observed;
+    let d = population - b - c - observed;
     let pvalue = self.get_p_value(observed, b, c, d);
     // Floating-point accumulation can push the result slightly above 1.0 so clamped at 1.0
     if pvalue.is_finite() {
