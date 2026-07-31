@@ -299,6 +299,11 @@ export default function UserManual() {
           <p>
           Additionally, up- and down-gene set enrichment analysis queries can be performed in Python against all L2S2 signatures using the requests library as follows:
           </p>
+          <p>
+            Paired enrichment uses the updated algorithm by default. Set{" "}
+            <code>pvalue_method=&quot;old_pooled_fisher&quot;</code> to use the legacy
+            method.
+          </p>
           <div className="text-gray bg-slate-300 dark:bg-slate-700 text-xs font-mono mt-5 p-5 rounded-lg box-content sm:max-w-xl sm:overflow-scroll md:max-w-xl lg:max-w-3xl xl:max-w-full">
             <button className="float-right" onClick={() => navigator.clipboard.writeText(upDownGeneSetEnrich)}><FaCopy/></button>
             <pre>

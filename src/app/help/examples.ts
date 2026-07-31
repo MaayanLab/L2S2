@@ -143,7 +143,7 @@ def get_overlap(genes, id):
     return [item['symbol'] for item in res['data']['geneSet']['overlap']['nodes']]
 `;
 
-export const upDownGeneSetEnrich = `def enrich_l2s2_up_down(genes_up: list[str], genes_down: list[str], first=100):
+export const upDownGeneSetEnrich = `def enrich_l2s2_up_down(genes_up: list[str], genes_down: list[str], first=100, pvalue_method: str | None = None):
   query = {
     "operationName": "PairEnrichmentQuery",
     "variables": {
@@ -155,10 +155,11 @@ export const upDownGeneSetEnrich = `def enrich_l2s2_up_down(genes_up: list[str],
       "filterKo": False,
       "topN": 1000,
       "pvalueLe": 0.05,
+      "pvalueMethod": pvalue_method,
       "genesUp": genes_up,
       "genesDown": genes_down
     },
-    "query": """query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = \"\", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = \"\", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05) {
+    "query": """query PairEnrichmentQuery($genesUp: [String]!, $genesDown: [String]!, $filterTerm: String = \"\", $offset: Int = 0, $first: Int = 10, $filterFda: Boolean = false, $sortBy: String = \"\", $filterKo: Boolean = false, $topN: Int = 10000, $pvalueLe: Float = 0.05, $pvalueMethod: String) {
       currentBackground {
         pairedEnrich(
           filterTerm: $filterTerm
@@ -169,6 +170,7 @@ export const upDownGeneSetEnrich = `def enrich_l2s2_up_down(genes_up: list[str],
           filterKo: $filterKo
           topN: $topN
           pvalueLe: $pvalueLe
+          pvalueMethod: $pvalueMethod
           genesDown: $genesDown
           genesUp: $genesUp
           ) {
