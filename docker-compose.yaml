@@ -39,7 +39,7 @@ services:
       - POSTGRES_PASSWORD
       - ENRICH_URL=http://l2s2-enrich:8000
     ports:
-      - 5432:5432
+      - 0.0.0.0:5432:5432
     volumes:
       - l2s2-data-2:/var/lib/postgresql/data
 
