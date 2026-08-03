@@ -542,7 +542,8 @@ async fn query(
     let n_insignificant_drugs = total_terms - n_significant_drugs;
 
     let mut fisher = state.fisher.write().await; // Acquire write lock to mutate the data
-    *fisher = FastFisher::with_capacity(total_terms * 2); 
+    // This table is shared across backgrounds and query types, so never shrink it.
+    fisher.extend_to(total_terms * 2);
 
     let mut consensus_results: Vec<DrugConsensusResult> = drug_significance_counts
         .par_iter() // Use Rayon parallel iterator
@@ -966,7 +967,7 @@ async fn query(
     })
 }
 
-#[post("/pairs/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>&<top_n>", data = "<input_gene_sets>")]
+#[post("/pairs/<background_id>?<filter_term>&<overlap_ge>&<pvalue_le>&<adj_pvalue_le>&<offset>&<limit>&<filter_fda>&<sortby>&<filter_ko>&<top_n>&<pvalue_method>", data = "<input_gene_sets>")]
 async fn query_pairs(
     mut db: Connection<Postgres>,
     state: &State<PersistentState>,
@@ -982,6 +983,7 @@ async fn query_pairs(
     sortby: Option<String>,
     filter_ko: Option<bool>,
     top_n: Option<usize>,
+    pvalue_method: Option<&str>,
 ) -> Result<PairedQueryResponse, Custom<String>> {
 
     let background_id = {
@@ -1015,6 +1017,11 @@ async fn query_pairs(
     let filter_term = filter_term.and_then(|filter_term| Some(filter_term.to_lowercase()));
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let top_n = top_n.unwrap_or(1000);
+    let use_old_pooled_fisher = match pvalue_method {
+        None => false,
+        Some("old_pooled_fisher") => true,
+        Some(method) => return Err(Custom(Status::NotFound, format!("Unknown paired p-value method: {method}"))),
+    };
 
     let fisher = state.fisher.read().await;
 
@@ -1025,7 +1032,12 @@ async fn query_pairs(
     let start = Instant::now();
     let background_query = Arc::new(BackgroundQueryPair { background_id, input_gene_set_up, input_gene_set_down });
     let mut results = {
-        let results = state.cachepair.get(&background_query).await;
+        // old_pooled_fisher requests skip cache lookup.
+        let results = if use_old_pooled_fisher {
+            None
+        } else {
+            state.cachepair.get(&background_query).await
+        };
         if let Some(results) = results {
             results.value().clone()
         } else {
@@ -1049,27 +1061,59 @@ async fn query_pairs(
                     return None;
                 }
 
-                // Compute Fisher test for mimicker
+                let query_up_n = background_query.input_gene_set_up.n;
+                let query_down_n = background_query.input_gene_set_down.n;
+                let lib_up_n = gene_set_up.v.len();
+                let lib_down_n = gene_set_down.v.len();
+
+                // Compute the mimicker p-value with the requested method.
                 let a_mimic = mimicker_overlap;
-                let b_mimic = n_user_gene_id - a_mimic;
-                let c_mimic = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_mimic;
-                let d_mimic = n_background - b_mimic - c_mimic + a_mimic;
-
+                let pvalue_mimic = if use_old_pooled_fisher {
+                    fisher.get_old_pooled_fisher_p_value(
+                        a_mimic as usize,
+                        query_up_n + query_down_n,
+                        lib_up_n + lib_down_n,
+                        n_background as usize,
+                    )
+                } else {
+                    fisher.get_convolved_p_value(
+                        overlap_up_up as usize,
+                        overlap_down_down as usize,
+                        query_up_n,
+                        query_down_n,
+                        lib_up_n,
+                        lib_down_n,
+                        n_background as usize,
+                    )
+                };
                 
-                let pvalue_mimic = fisher.get_p_value(a_mimic as usize, b_mimic as usize, c_mimic as usize, d_mimic as usize);
-                
-                // Compute Fisher test for reverser
+                // Compute the reverser p-value with the requested method.
                 let a_reverse = reverser_overlap;
-                let b_reverse = n_user_gene_id - a_reverse;
-                let c_reverse = (gene_set_up.v.len() + gene_set_down.v.len()) as u32 - a_reverse;
-                let d_reverse = n_background - b_reverse - c_reverse + a_reverse;
+                let pvalue_reverse = if use_old_pooled_fisher {
+                    fisher.get_old_pooled_fisher_p_value(
+                        a_reverse as usize,
+                        query_up_n + query_down_n,
+                        lib_up_n + lib_down_n,
+                        n_background as usize,
+                    )
+                } else {
+                    fisher.get_convolved_p_value(
+                        overlap_up_down as usize,
+                        overlap_down_up as usize,
+                        query_up_n,
+                        query_down_n,
+                        lib_down_n,
+                        lib_up_n,
+                        n_background as usize,
+                    )
+                };
 
-                let pvalue_reverse = fisher.get_p_value(a_reverse as usize, b_reverse as usize, c_reverse as usize, d_reverse as usize);
-
-                if pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0) {
+                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0)) {
                     return None;
                 }
 
+                let c_mimic = (lib_up_n + lib_down_n) as u32 - a_mimic;
+                let c_reverse = (lib_up_n + lib_down_n) as u32 - a_reverse;
                 let odds_ratio_mimic = ((a_mimic as f64) / (n_user_gene_id as f64)) / ((c_mimic as f64) / (n_background as f64));
                 let odds_ratio_reverse = ((a_reverse as f64) / (n_user_gene_id as f64)) / ((c_reverse as f64) / (n_background as f64));
 
@@ -1089,9 +1133,15 @@ async fn query_pairs(
             })
             .collect();
 
-            // extract pvalues from results and compute adj_pvalues
-            let mut pvalues_mimic = vec![1.0; bitmap.values.len()];
-            let mut pvalues_reverse = vec![1.0; bitmap.values.len()];
+            // Legacy results used every directional gene set as the BH universe;
+            // convolution corrects over the signature pairs actually tested.
+            let fdr_count = if use_old_pooled_fisher {
+                bitmap.values.len()
+            } else {
+                bitmap.signature_pairs.pairs.len()
+            };
+            let mut pvalues_mimic = vec![1.0; fdr_count];
+            let mut pvalues_reverse = vec![1.0; fdr_count];
             for result in &results {
                 pvalues_mimic[result.index] = result.pvalue_mimic;
                 pvalues_reverse[result.index] = result.pvalue_reverse;
@@ -1111,7 +1161,10 @@ async fn query_pairs(
             results.sort_unstable_by(|a, b| a.pvalue_mimic.partial_cmp(&b.pvalue_mimic).unwrap_or(std::cmp::Ordering::Equal));
 
             let results = Arc::new(results);
-            state.cachepair.insert(background_query, results.clone(), 30000).await;
+            // old_pooled_fisher results are never inserted into the cache.
+            if !use_old_pooled_fisher {
+                state.cachepair.insert(background_query, results.clone(), 30000).await;
+            }
             let duration = start.elapsed();
             println!("[{}] {} up and down genes enriched in {:?}", background_id, n_user_gene_id, duration);
             results

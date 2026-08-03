@@ -93,10 +93,16 @@ function EnrichmentResults({
     ko: "false",
     topn: "10000",
     pvaluele: "0.05",
+    pvaluemethod: "",
   });
   const [rawTerm, setRawTerm] = React.useState("");
   const [topNSlider, setTopNSlider] = React.useState(10000);
   const [pvalueLeSlider, setPvalueLeSlider] = React.useState(0.05);
+  const [legacyAlgorithm, setLegacyAlgorithm] = React.useState(false);
+
+  React.useEffect(() => {
+    setLegacyAlgorithm(queryString.pvaluemethod === "old_pooled_fisher");
+  }, [queryString.pvaluemethod]);
 
   const { page, term, fda, consensus, moas, sort, ko, topN, pvalueLe } =
     React.useMemo(
@@ -126,6 +132,7 @@ function EnrichmentResults({
       filterKo: ko,
       topN: topN,
       pvalueLe: pvalueLe,
+      pvalueMethod: queryString.pvaluemethod || undefined,
     },
   });
 
@@ -472,9 +479,34 @@ function EnrichmentResults({
             </div>
           </div>
         ) : <></>}
+        <div className="mt-5 flex items-center justify-end gap-2 text-sm font-bold">
+          <input
+            type="checkbox"
+            className="toggle toggle-sm toggle-primary"
+            checked={legacyAlgorithm}
+            onChange={(evt) => {
+              setLegacyAlgorithm(evt.target.checked);
+              setQueryString({
+                page: "1",
+                pvaluemethod: evt.target.checked
+                  ? "old_pooled_fisher"
+                  : "",
+              });
+            }}
+            aria-label="Use legacy paired enrichment method"
+          />
+          <span className="relative group inline-flex items-center">
+            Legacy algorithm
+            <IoMdInformationCircleOutline className="ml-0.5" />
+            <span className="absolute z-10 right-0 top-6 hidden w-72 rounded bg-gray-700 p-2 text-xs font-normal text-white group-hover:block">
+              L2S2 has updated its paired enrichment algorithm. Use the legacy
+              method to reproduce results generated before this update.
+            </span>
+          </span>
+        </div>
         <form
           id="search-form"
-          className="join flex flex-row place-content-end place-items-center overflow-visible mt-5"
+          className="join flex flex-row place-content-end place-items-center overflow-visible mt-2"
           onSubmit={(evt) => {
             evt.preventDefault();
             setQueryString({
