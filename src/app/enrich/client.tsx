@@ -18,6 +18,7 @@ import Image from "next/image";
 import GeneSetModal from "@/components/geneSetModal";
 import { FaFilter, FaSortUp } from "react-icons/fa6";
 import { IoMdInformationCircleOutline } from "react-icons/io";
+import EnrichmentError from "@/components/enrichmentError";
 
 const pageSize = 12;
 
@@ -85,7 +86,7 @@ function EnrichmentResults({
       }),
       [queryString]
     );
-  const { data: enrichmentResults, error } = useEnrichmentQueryQuery({
+  const { data: enrichmentResults, error, refetch } = useEnrichmentQueryQuery({
     skip: genes.length === 0,
     variables: {
       genes,
@@ -106,6 +107,10 @@ function EnrichmentResults({
     console.log(term);
     setRawTerm(term);
   }, [term]);
+
+  if (error) {
+    return <EnrichmentError error={error} retry={refetch} />;
+  }
 
   return (
     <div className="flex flex-col gap-2 my-2">

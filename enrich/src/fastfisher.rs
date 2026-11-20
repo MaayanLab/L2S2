@@ -5,9 +5,9 @@ impl FastFisher {
     FastFisher{f: vec![0.0]}
   }
 
-  pub fn get_f(&self) -> &Vec<f64> {
-    &self.f
-  }
+  // pub fn get_f(&self) -> &Vec<f64> {
+  //   &self.f
+  // }
 
   pub fn extend_to(self: &mut Self, max_size: usize) {
     while self.f.len() <= max_size {

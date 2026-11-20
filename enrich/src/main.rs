@@ -3,13 +3,13 @@ mod fastfisher;
 mod bitvec;
 
 #[macro_use] extern crate rocket;
-use async_lock::RwLock;
+use async_lock::{Mutex, RwLock};
 use futures::StreamExt;
 use num::Integer;
 use rocket::http::ContentType;
 use std::future;
 use std::io::Cursor;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use rocket::request::Request;
 use rocket::response::{self, Response, Responder, stream::TextStream};
 use rocket_db_pools::{Database, Connection};
@@ -20,8 +20,10 @@ use adjustp::{adjust, Procedure};
 use rocket::{State, response::status::Custom, http::Status};
 use rocket::serde::{json::{json, Json, Value}, Serialize, Deserialize};
 use std::sync::Arc;
+use std::time::Duration;
 use retainer::Cache;
 use std::time::Instant;
+use rocket::fairing::AdHoc;
 
 use fastfisher::FastFisher;
 use async_rwlockhashmap::RwLockHashMap;
@@ -116,6 +118,9 @@ impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
 struct BackgroundQuery {
     background_id: Uuid,
     input_gene_set: DenseBitVec,
+    overlap_ge: u32,
+    pvalue_le_bits: u64,
+    adj_pvalue_le_bits: u64,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
@@ -123,6 +128,9 @@ struct BackgroundQueryPair {
     background_id: Uuid,
     input_gene_set_up: DenseBitVec,
     input_gene_set_down: DenseBitVec,
+    overlap_ge: u32,
+    pvalue_le_bits: u64,
+    adj_pvalue_le_bits: u64,
 }
 
 // This structure stores a persistent many-reader single-writer hashmap containing cached indexes for a given background id
@@ -130,9 +138,28 @@ struct PersistentState {
     fisher: RwLock<FastFisher>,
     // NOTE: Bitmap<u16> limits the number of genes to 65K -- to support more than that, use u32/u64 at the cost of more memory
     bitmaps: RwLockHashMap<Uuid, Bitmap<u16>>,
+    initializing: RwLock<HashSet<Uuid>>,
     latest: RwLock<Option<Uuid>>,
-    cache: Cache<Arc<BackgroundQuery>, Arc<Vec<PartialQueryResult>>>,
-    cachepair: Cache<Arc<BackgroundQueryPair>, Arc<Vec<PartialPairResult>>>,
+    cache: Arc<Cache<Arc<BackgroundQuery>, Arc<Vec<PartialQueryResult>>>>,
+    cachepair: Arc<Cache<Arc<BackgroundQueryPair>, Arc<Vec<PartialPairResult>>>>,
+    cache_insert_lock: Mutex<()>,
+    cachepair_insert_lock: Mutex<()>,
+    cache_max_entries: usize,
+}
+
+enum EnsureIndexError {
+    Initializing,
+    Failed(String),
+}
+
+fn index_error_response(error: EnsureIndexError) -> Custom<String> {
+    match error {
+        EnsureIndexError::Initializing => Custom(
+            Status::ServiceUnavailable,
+            String::from("The enrichment index is initializing; please retry shortly."),
+        ),
+        EnsureIndexError::Failed(message) => Custom(Status::InternalServerError, message),
+    }
 }
 
 // The response data, containing the ids, and relevant metrics
@@ -252,17 +279,31 @@ impl<'r> Responder<'r, 'static> for PairedQueryResponse {
 
 
 // Ensure the specific background_id exists in state, resolving it if necessary
-async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentState>, background_id: Uuid) -> Result<(), String> {
+async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentState>, background_id: Uuid) -> Result<(), EnsureIndexError> {
     if state.bitmaps.contains_key(&background_id).await {
         return Ok(())
     }
 
+    {
+        let mut initializing = state.initializing.write().await;
+
+        // The index may have become ready while we were waiting for the
+        // initialization-state lock.
+        if state.bitmaps.contains_key(&background_id).await {
+            return Ok(())
+        }
+
+        // Only one request builds a given index. Other requests fail fast
+        // instead of occupying database connections while waiting for it.
+        if !initializing.insert(background_id) {
+            return Err(EnsureIndexError::Initializing)
+        }
+    }
+
     println!("[{}] initializing", background_id);
     let start = Instant::now();
-    {
-        // this lets us write a new bitmap by only blocking the whole hashmap for a short period to register the new bitmap
-        // after which we block the new empty bitmap for writing
-        let mut bitmap = state.bitmaps.insert_write(background_id, Bitmap::new()).await;
+    let initialization_result: Result<Bitmap<u16>, String> = async {
+        let mut bitmap = Bitmap::new();
 
         let background_info = sqlx::query("select id, (select jsonb_object_agg(g.id, g.symbol) from jsonb_each(gene_ids) bg(gene_id, nil) inner join app_public_v2.gene g on bg.gene_id::uuid = g.id) as genes from app_public_v2.background b where id = $1::uuid;")
             .bind(background_id.to_string())
@@ -309,6 +350,20 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
             .await;
         // compute and store pairs
         bitmap.finalize();
+        Ok(bitmap)
+    }.await;
+
+    match initialization_result {
+        Ok(bitmap) => {
+            // Publish the completed index before clearing the initialization
+            // marker, leaving no window in which a second build can start.
+            drop(state.bitmaps.insert_write(background_id, bitmap).await);
+            state.initializing.write().await.remove(&background_id);
+        },
+        Err(message) => {
+            state.initializing.write().await.remove(&background_id);
+            return Err(EnsureIndexError::Failed(message))
+        },
     }
     
     let duration = start.elapsed();
@@ -327,7 +382,7 @@ async fn ensure(
     background_id: &str,
 ) -> Result<Value, Custom<String>> {
     let background_id = Uuid::parse_str(background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?;
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
     Ok(json!({
         "columns": bitmap.columns.len(),
@@ -353,7 +408,7 @@ async fn get_gmt(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::InternalServerError, String::from("Can't find background")))?;
     Ok(TextStream! {
         for (gene_set_hash, gene_set) in bitmap.values.iter() {
@@ -392,6 +447,11 @@ async fn delete(
         return Err(Custom(Status::NotFound, String::from("Not Found")));
     }
     if state.bitmaps.remove(&background_id).await {
+        // Query keys contain the background id, but retainer does not support
+        // predicate-based removal. Background deletion is rare, so clear both
+        // small caches to release all results referencing the deleted index.
+        state.cache.clear().await;
+        state.cachepair.clear().await;
         println!("[{}] deleted", background_id);
     }
     Ok(())
@@ -425,7 +485,7 @@ async fn query(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let start = Instant::now();
     let input_gene_set = input_gene_set.0.into_iter().map(|gene| Uuid::parse_str(&gene)).collect::<Result<Vec<_>, _>>().map_err(|e| Custom(Status::BadRequest, e.to_string()))?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
@@ -436,7 +496,13 @@ async fn query(
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let sortby = sortby.and_then(|sortby| Some(sortby));
     let top_n = top_n.unwrap_or(1000);
-    let background_query = Arc::new(BackgroundQuery { background_id, input_gene_set });
+    let background_query = Arc::new(BackgroundQuery {
+        background_id,
+        input_gene_set,
+        overlap_ge,
+        pvalue_le_bits: pvalue_le.to_bits(),
+        adj_pvalue_le_bits: adj_pvalue_le.to_bits(),
+    });
     let results = {
         let results = state.cache.get(&background_query).await;
         if let Some(results) = results {
@@ -481,6 +547,10 @@ async fn query(
             });
             results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
             let results = Arc::new(results);
+            let _insert_guard = state.cache_insert_lock.lock().await;
+            if state.cache.len().await >= state.cache_max_entries {
+                state.cache.clear().await;
+            }
             state.cache.insert(background_query, results.clone(), 30000).await;
             let duration = start.elapsed();
             println!("[{}] {} genes enriched in {:?}", background_id, n_user_gene_id, duration);
@@ -555,7 +625,7 @@ async fn query(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+            if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
@@ -665,7 +735,7 @@ async fn query(
         let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
         let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-        if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+        if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
             return DrugConsensusResult {
                 drug: moa.clone(),
                 count_significant: *count_sig,
@@ -994,7 +1064,7 @@ async fn query_pairs(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let start = Instant::now();
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
 
@@ -1015,6 +1085,8 @@ async fn query_pairs(
 
 
     let filter_term = filter_term.and_then(|filter_term| Some(filter_term.to_lowercase()));
+    let overlap_ge = overlap_ge.unwrap_or(1);
+    let pvalue_le = pvalue_le.unwrap_or(1.0);
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let top_n = top_n.unwrap_or(1000);
     let use_old_pooled_fisher = match pvalue_method {
@@ -1029,9 +1101,15 @@ async fn query_pairs(
     let n_user_gene_id = input_gene_set_up.n as u32 + input_gene_set_down.n as u32;
 
     println!("[{}] Computing mimickers and reversers", background_id);
-    let start = Instant::now();
-    let background_query = Arc::new(BackgroundQueryPair { background_id, input_gene_set_up, input_gene_set_down });
-    let mut results = {
+    let background_query = Arc::new(BackgroundQueryPair {
+        background_id,
+        input_gene_set_up,
+        input_gene_set_down,
+        overlap_ge,
+        pvalue_le_bits: pvalue_le.to_bits(),
+        adj_pvalue_le_bits: adj_pvalue_le.to_bits(),
+    });
+    let results = {
         // old_pooled_fisher requests skip cache lookup.
         let results = if use_old_pooled_fisher {
             None
@@ -1057,7 +1135,7 @@ async fn query_pairs(
                 let reverser_overlap = overlap_up_down + overlap_down_up;
 
                 // Apply overlap filters
-                if mimicker_overlap < overlap_ge.unwrap_or(1) && reverser_overlap < overlap_ge.unwrap_or(1) {
+                if mimicker_overlap < overlap_ge && reverser_overlap < overlap_ge {
                     return None;
                 }
 
@@ -1108,7 +1186,7 @@ async fn query_pairs(
                     )
                 };
 
-                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0)) {
+                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le && pvalue_reverse > pvalue_le) {
                     return None;
                 }
 
@@ -1163,6 +1241,10 @@ async fn query_pairs(
             let results = Arc::new(results);
             // old_pooled_fisher results are never inserted into the cache.
             if !use_old_pooled_fisher {
+                let _insert_guard = state.cachepair_insert_lock.lock().await;
+                if state.cachepair.len().await >= state.cache_max_entries {
+                    state.cachepair.clear().await;
+                }
                 state.cachepair.insert(background_query, results.clone(), 30000).await;
             }
             let duration = start.elapsed();
@@ -1237,7 +1319,7 @@ async fn query_pairs(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+            if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
@@ -1347,7 +1429,7 @@ async fn query_pairs(
         let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
         let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-        if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+        if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
             return DrugConsensusResult {
                 drug: moa.clone(),
                 count_significant: *count_sig,
@@ -1678,14 +1760,38 @@ async fn query_pairs(
 
 #[launch]
 fn rocket() -> _ {
+    let cache = Arc::new(Cache::new());
+    let cachepair = Arc::new(Cache::new());
+    let cache_monitor = cache.clone();
+    let cachepair_monitor = cachepair.clone();
+    let cache_max_entries = std::env::var("ENRICH_CACHE_MAX_ENTRIES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(8)
+        .max(1);
+
     rocket::build()
         .manage(PersistentState {
             fisher: RwLock::new(FastFisher::new()),
             bitmaps: RwLockHashMap::new(),
+            initializing: RwLock::new(HashSet::new()),
             latest: RwLock::new(None),
-            cache: Cache::new(),
-            cachepair: Cache::new()
+            cache,
+            cachepair,
+            cache_insert_lock: Mutex::new(()),
+            cachepair_insert_lock: Mutex::new(()),
+            cache_max_entries,
         })
         .attach(Postgres::init())
+        .attach(AdHoc::on_liftoff("Result cache expiration", move |_| {
+            Box::pin(async move {
+                rocket::tokio::spawn(async move {
+                    cache_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                });
+                rocket::tokio::spawn(async move {
+                    cachepair_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                });
+            })
+        }))
         .mount("/", routes![ensure, get_gmt, query, query_pairs, delete])
 }
