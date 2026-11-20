@@ -1,6 +1,6 @@
 {
   "name": "l2s2",
-  "version": "0.2.29",
+  "version": "0.2.30",
   "private": true,
   "scripts": {
     "dev": "concurrently \"next dev\" \"npm run generate -- --watch ./src/graphql/**/*.graphql\"",
