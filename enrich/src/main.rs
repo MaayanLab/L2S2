@@ -1786,10 +1786,24 @@ fn rocket() -> _ {
         .attach(AdHoc::on_liftoff("Result cache expiration", move |_| {
             Box::pin(async move {
                 rocket::tokio::spawn(async move {
-                    cache_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                    // Don't use retainer's `monitor`: it relies on async-timer's POSIX
+                    // signal-based timers, whose handler wakes tokio tasks from signal
+                    // context and aborts the process ("RefCell already borrowed").
+                    let mut interval = rocket::tokio::time::interval(Duration::from_secs(1));
+                    loop {
+                        interval.tick().await;
+                        cache_monitor.purge(20, 0.25).await;
+                    }
                 });
                 rocket::tokio::spawn(async move {
-                    cachepair_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                    // Don't use retainer's `monitor`: it relies on async-timer's POSIX
+                    // signal-based timers, whose handler wakes tokio tasks from signal
+                    // context and aborts the process ("RefCell already borrowed").
+                    let mut interval = rocket::tokio::time::interval(Duration::from_secs(1));
+                    loop {
+                        interval.tick().await;
+                        cachepair_monitor.purge(20, 0.25).await;
+                    }
                 });
             })
         }))
