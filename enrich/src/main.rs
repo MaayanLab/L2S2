@@ -9,7 +9,7 @@ use num::Integer;
 use rocket::http::ContentType;
 use std::future;
 use std::io::Cursor;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use rocket::request::Request;
 use rocket::response::{self, Response, Responder, stream::TextStream};
 use rocket_db_pools::{Database, Connection};
@@ -130,9 +130,25 @@ struct PersistentState {
     fisher: RwLock<FastFisher>,
     // NOTE: Bitmap<u16> limits the number of genes to 65K -- to support more than that, use u32/u64 at the cost of more memory
     bitmaps: RwLockHashMap<Uuid, Bitmap<u16>>,
+    initializing: RwLock<HashSet<Uuid>>,
     latest: RwLock<Option<Uuid>>,
     cache: Cache<Arc<BackgroundQuery>, Arc<Vec<PartialQueryResult>>>,
     cachepair: Cache<Arc<BackgroundQueryPair>, Arc<Vec<PartialPairResult>>>,
+}
+
+enum EnsureIndexError {
+    Initializing,
+    Failed(String),
+}
+
+fn index_error_response(error: EnsureIndexError) -> Custom<String> {
+    match error {
+        EnsureIndexError::Initializing => Custom(
+            Status::ServiceUnavailable,
+            String::from("The enrichment index is initializing; please retry shortly."),
+        ),
+        EnsureIndexError::Failed(message) => Custom(Status::InternalServerError, message),
+    }
 }
 
 // The response data, containing the ids, and relevant metrics
@@ -252,17 +268,31 @@ impl<'r> Responder<'r, 'static> for PairedQueryResponse {
 
 
 // Ensure the specific background_id exists in state, resolving it if necessary
-async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentState>, background_id: Uuid) -> Result<(), String> {
+async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentState>, background_id: Uuid) -> Result<(), EnsureIndexError> {
     if state.bitmaps.contains_key(&background_id).await {
         return Ok(())
     }
 
+    {
+        let mut initializing = state.initializing.write().await;
+
+        // The index may have become ready while we were waiting for the
+        // initialization-state lock.
+        if state.bitmaps.contains_key(&background_id).await {
+            return Ok(())
+        }
+
+        // Only one request builds a given index. Other requests fail fast
+        // instead of occupying database connections while waiting for it.
+        if !initializing.insert(background_id) {
+            return Err(EnsureIndexError::Initializing)
+        }
+    }
+
     println!("[{}] initializing", background_id);
     let start = Instant::now();
-    {
-        // this lets us write a new bitmap by only blocking the whole hashmap for a short period to register the new bitmap
-        // after which we block the new empty bitmap for writing
-        let mut bitmap = state.bitmaps.insert_write(background_id, Bitmap::new()).await;
+    let initialization_result: Result<Bitmap<u16>, String> = async {
+        let mut bitmap = Bitmap::new();
 
         let background_info = sqlx::query("select id, (select jsonb_object_agg(g.id, g.symbol) from jsonb_each(gene_ids) bg(gene_id, nil) inner join app_public_v2.gene g on bg.gene_id::uuid = g.id) as genes from app_public_v2.background b where id = $1::uuid;")
             .bind(background_id.to_string())
@@ -309,6 +339,20 @@ async fn ensure_index(db: &mut Connection<Postgres>, state: &State<PersistentSta
             .await;
         // compute and store pairs
         bitmap.finalize();
+        Ok(bitmap)
+    }.await;
+
+    match initialization_result {
+        Ok(bitmap) => {
+            // Publish the completed index before clearing the initialization
+            // marker, leaving no window in which a second build can start.
+            drop(state.bitmaps.insert_write(background_id, bitmap).await);
+            state.initializing.write().await.remove(&background_id);
+        },
+        Err(message) => {
+            state.initializing.write().await.remove(&background_id);
+            return Err(EnsureIndexError::Failed(message))
+        },
     }
     
     let duration = start.elapsed();
@@ -327,7 +371,7 @@ async fn ensure(
     background_id: &str,
 ) -> Result<Value, Custom<String>> {
     let background_id = Uuid::parse_str(background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?;
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
     Ok(json!({
         "columns": bitmap.columns.len(),
@@ -353,7 +397,7 @@ async fn get_gmt(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::InternalServerError, String::from("Can't find background")))?;
     Ok(TextStream! {
         for (gene_set_hash, gene_set) in bitmap.values.iter() {
@@ -425,7 +469,7 @@ async fn query(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let start = Instant::now();
     let input_gene_set = input_gene_set.0.into_iter().map(|gene| Uuid::parse_str(&gene)).collect::<Result<Vec<_>, _>>().map_err(|e| Custom(Status::BadRequest, e.to_string()))?;
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
@@ -994,7 +1038,7 @@ async fn query_pairs(
             Uuid::parse_str(&background_id).map_err(|e| Custom(Status::BadRequest, e.to_string()))?
         }
     };
-    ensure_index(&mut db, &state, background_id).await.map_err(|e| Custom(Status::InternalServerError, e.to_string()))?;
+    ensure_index(&mut db, &state, background_id).await.map_err(index_error_response)?;
     let start = Instant::now();
     let bitmap = state.bitmaps.get_read(&background_id).await.ok_or(Custom(Status::NotFound, String::from("Can't find background")))?;
 
@@ -1682,6 +1726,7 @@ fn rocket() -> _ {
         .manage(PersistentState {
             fisher: RwLock::new(FastFisher::new()),
             bitmaps: RwLockHashMap::new(),
+            initializing: RwLock::new(HashSet::new()),
             latest: RwLock::new(None),
             cache: Cache::new(),
             cachepair: Cache::new()
