@@ -3,7 +3,7 @@ mod fastfisher;
 mod bitvec;
 
 #[macro_use] extern crate rocket;
-use async_lock::RwLock;
+use async_lock::{Mutex, RwLock};
 use futures::StreamExt;
 use num::Integer;
 use rocket::http::ContentType;
@@ -20,8 +20,10 @@ use adjustp::{adjust, Procedure};
 use rocket::{State, response::status::Custom, http::Status};
 use rocket::serde::{json::{json, Json, Value}, Serialize, Deserialize};
 use std::sync::Arc;
+use std::time::Duration;
 use retainer::Cache;
 use std::time::Instant;
+use rocket::fairing::AdHoc;
 
 use fastfisher::FastFisher;
 use async_rwlockhashmap::RwLockHashMap;
@@ -116,6 +118,9 @@ impl<B: Integer + Copy + Into<usize>> Bitmap<B> {
 struct BackgroundQuery {
     background_id: Uuid,
     input_gene_set: DenseBitVec,
+    overlap_ge: u32,
+    pvalue_le_bits: u64,
+    adj_pvalue_le_bits: u64,
 }
 
 #[derive(Eq, PartialEq, PartialOrd, Ord)]
@@ -123,6 +128,9 @@ struct BackgroundQueryPair {
     background_id: Uuid,
     input_gene_set_up: DenseBitVec,
     input_gene_set_down: DenseBitVec,
+    overlap_ge: u32,
+    pvalue_le_bits: u64,
+    adj_pvalue_le_bits: u64,
 }
 
 // This structure stores a persistent many-reader single-writer hashmap containing cached indexes for a given background id
@@ -132,8 +140,11 @@ struct PersistentState {
     bitmaps: RwLockHashMap<Uuid, Bitmap<u16>>,
     initializing: RwLock<HashSet<Uuid>>,
     latest: RwLock<Option<Uuid>>,
-    cache: Cache<Arc<BackgroundQuery>, Arc<Vec<PartialQueryResult>>>,
-    cachepair: Cache<Arc<BackgroundQueryPair>, Arc<Vec<PartialPairResult>>>,
+    cache: Arc<Cache<Arc<BackgroundQuery>, Arc<Vec<PartialQueryResult>>>>,
+    cachepair: Arc<Cache<Arc<BackgroundQueryPair>, Arc<Vec<PartialPairResult>>>>,
+    cache_insert_lock: Mutex<()>,
+    cachepair_insert_lock: Mutex<()>,
+    cache_max_entries: usize,
 }
 
 enum EnsureIndexError {
@@ -436,6 +447,11 @@ async fn delete(
         return Err(Custom(Status::NotFound, String::from("Not Found")));
     }
     if state.bitmaps.remove(&background_id).await {
+        // Query keys contain the background id, but retainer does not support
+        // predicate-based removal. Background deletion is rare, so clear both
+        // small caches to release all results referencing the deleted index.
+        state.cache.clear().await;
+        state.cachepair.clear().await;
         println!("[{}] deleted", background_id);
     }
     Ok(())
@@ -480,7 +496,13 @@ async fn query(
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let sortby = sortby.and_then(|sortby| Some(sortby));
     let top_n = top_n.unwrap_or(1000);
-    let background_query = Arc::new(BackgroundQuery { background_id, input_gene_set });
+    let background_query = Arc::new(BackgroundQuery {
+        background_id,
+        input_gene_set,
+        overlap_ge,
+        pvalue_le_bits: pvalue_le.to_bits(),
+        adj_pvalue_le_bits: adj_pvalue_le.to_bits(),
+    });
     let results = {
         let results = state.cache.get(&background_query).await;
         if let Some(results) = results {
@@ -525,6 +547,10 @@ async fn query(
             });
             results.sort_unstable_by(|a, b| a.pvalue.partial_cmp(&b.pvalue).unwrap_or(std::cmp::Ordering::Equal));
             let results = Arc::new(results);
+            let _insert_guard = state.cache_insert_lock.lock().await;
+            if state.cache.len().await >= state.cache_max_entries {
+                state.cache.clear().await;
+            }
             state.cache.insert(background_query, results.clone(), 30000).await;
             let duration = start.elapsed();
             println!("[{}] {} genes enriched in {:?}", background_id, n_user_gene_id, duration);
@@ -599,7 +625,7 @@ async fn query(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+            if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
@@ -709,7 +735,7 @@ async fn query(
         let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
         let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-        if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+        if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
             return DrugConsensusResult {
                 drug: moa.clone(),
                 count_significant: *count_sig,
@@ -1059,6 +1085,8 @@ async fn query_pairs(
 
 
     let filter_term = filter_term.and_then(|filter_term| Some(filter_term.to_lowercase()));
+    let overlap_ge = overlap_ge.unwrap_or(1);
+    let pvalue_le = pvalue_le.unwrap_or(1.0);
     let adj_pvalue_le =  adj_pvalue_le.unwrap_or(1.0);
     let top_n = top_n.unwrap_or(1000);
     let use_old_pooled_fisher = match pvalue_method {
@@ -1073,9 +1101,15 @@ async fn query_pairs(
     let n_user_gene_id = input_gene_set_up.n as u32 + input_gene_set_down.n as u32;
 
     println!("[{}] Computing mimickers and reversers", background_id);
-    let start = Instant::now();
-    let background_query = Arc::new(BackgroundQueryPair { background_id, input_gene_set_up, input_gene_set_down });
-    let mut results = {
+    let background_query = Arc::new(BackgroundQueryPair {
+        background_id,
+        input_gene_set_up,
+        input_gene_set_down,
+        overlap_ge,
+        pvalue_le_bits: pvalue_le.to_bits(),
+        adj_pvalue_le_bits: adj_pvalue_le.to_bits(),
+    });
+    let results = {
         // old_pooled_fisher requests skip cache lookup.
         let results = if use_old_pooled_fisher {
             None
@@ -1101,7 +1135,7 @@ async fn query_pairs(
                 let reverser_overlap = overlap_up_down + overlap_down_up;
 
                 // Apply overlap filters
-                if mimicker_overlap < overlap_ge.unwrap_or(1) && reverser_overlap < overlap_ge.unwrap_or(1) {
+                if mimicker_overlap < overlap_ge && reverser_overlap < overlap_ge {
                     return None;
                 }
 
@@ -1152,7 +1186,7 @@ async fn query_pairs(
                     )
                 };
 
-                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le.unwrap_or(1.0) && pvalue_reverse > pvalue_le.unwrap_or(1.0)) {
+                if !pvalue_mimic.is_finite() || !pvalue_reverse.is_finite() || (pvalue_mimic > pvalue_le && pvalue_reverse > pvalue_le) {
                     return None;
                 }
 
@@ -1207,6 +1241,10 @@ async fn query_pairs(
             let results = Arc::new(results);
             // old_pooled_fisher results are never inserted into the cache.
             if !use_old_pooled_fisher {
+                let _insert_guard = state.cachepair_insert_lock.lock().await;
+                if state.cachepair.len().await >= state.cache_max_entries {
+                    state.cachepair.clear().await;
+                }
                 state.cachepair.insert(background_query, results.clone(), 30000).await;
             }
             let duration = start.elapsed();
@@ -1281,7 +1319,7 @@ async fn query_pairs(
             let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
             let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-            if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+            if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
                 return DrugConsensusResult {
                     drug: drug.clone(),
                     count_significant: *count_sig,
@@ -1391,7 +1429,7 @@ async fn query_pairs(
         let d = n_insignificant_drugs - *count_insig; // Drug does not appear in insignificant results
         let total_terms_by_dir = (*count_sig + *count_insig) / 2;
 
-        if (a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs)) {
+        if a < 5 || (*count_insig > n_insignificant_drugs)|| (*count_sig > n_significant_drugs) {
             return DrugConsensusResult {
                 drug: moa.clone(),
                 count_significant: *count_sig,
@@ -1722,15 +1760,38 @@ async fn query_pairs(
 
 #[launch]
 fn rocket() -> _ {
+    let cache = Arc::new(Cache::new());
+    let cachepair = Arc::new(Cache::new());
+    let cache_monitor = cache.clone();
+    let cachepair_monitor = cachepair.clone();
+    let cache_max_entries = std::env::var("ENRICH_CACHE_MAX_ENTRIES")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .unwrap_or(8)
+        .max(1);
+
     rocket::build()
         .manage(PersistentState {
             fisher: RwLock::new(FastFisher::new()),
             bitmaps: RwLockHashMap::new(),
             initializing: RwLock::new(HashSet::new()),
             latest: RwLock::new(None),
-            cache: Cache::new(),
-            cachepair: Cache::new()
+            cache,
+            cachepair,
+            cache_insert_lock: Mutex::new(()),
+            cachepair_insert_lock: Mutex::new(()),
+            cache_max_entries,
         })
         .attach(Postgres::init())
+        .attach(AdHoc::on_liftoff("Result cache expiration", move |_| {
+            Box::pin(async move {
+                rocket::tokio::spawn(async move {
+                    cache_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                });
+                rocket::tokio::spawn(async move {
+                    cachepair_monitor.monitor(20, 0.25, Duration::from_secs(1)).await;
+                });
+            })
+        }))
         .mount("/", routes![ensure, get_gmt, query, query_pairs, delete])
 }

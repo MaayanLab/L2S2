@@ -26,6 +26,7 @@ services:
           memory: 5Gb
     environment:
       - 'ROCKET_DATABASES={postgres={url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@l2s2-postgres/${POSTGRES_DB}"}}'
+      - ENRICH_CACHE_MAX_ENTRIES=${ENRICH_CACHE_MAX_ENTRIES:-8}
     ports:
       - 8000:8000
   l2s2-postgres:
