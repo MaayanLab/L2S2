@@ -1,4 +1,4 @@
-FROM rust as builder
+FROM rust:1.99 AS builder
 WORKDIR /usr/src/enrich
 COPY . .
 RUN cargo install --path .
